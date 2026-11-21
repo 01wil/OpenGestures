@@ -27,7 +27,7 @@ If a gesture is missed or fires when it should not, record it and add it as a fi
 swift run og-record Tests/RecognizerTests/Fixtures/<gesture-id>__<name>.json
 ```
 
-The file name says what the recognizer must produce. For example `swipe.4.left__laptop-1.json` must yield exactly one 4-finger left swipe. Use `none__<name>.json` for a near miss that must yield nothing. Gesture ids are listed in the README.
+The file name says what the recognizer must produce. For example `swipe.4.left__laptop-1.json` must yield exactly one 4-finger left swipe. Use `none__<name>.json` for a near miss that must yield nothing. Gesture ids are listed in the README. A recording ends 0.3 seconds after you lift all fingers, so there is no duration to pass. Pause or quit OpenGestures first, and use `og-record --guided <directory>` to record the whole guided set.
 
 ## Style
 

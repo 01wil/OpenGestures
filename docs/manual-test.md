@@ -68,6 +68,9 @@ Add a binding for each in the settings window, with any gesture you like, and fi
 - [ ] Click Review… and Allow. The gesture works. Quit and relaunch: it still works, with no dialog.
 - [ ] Change the script text in the editor. The dialog appears again for the new text.
 - [ ] Add a plain window action in the editor. It works at once with no dialog.
+- [ ] Put a script binding in the file with `"enabled": false`, then switch it on in the Gestures pane. The dialog appears with the full script, and the gesture does nothing until you click Allow.
+- [ ] Put a script of more than 400 characters, followed by a second script binding, in the file. The dialog shows both scripts completely, scrolling if needed.
+- [ ] Open a default binding in the editor and click Save without changing anything. Its name is still there in `config.json`. Change the name field and Save: the new name is stored.
 
 ## Settings window
 

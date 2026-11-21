@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 #include <CoreFoundation/CoreFoundation.h>
 #include <stdbool.h>
 typedef struct { float x, y; } MTPoint;

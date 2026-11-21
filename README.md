@@ -92,10 +92,9 @@ Run the same layout again on a window that is already in that layout, and it goe
 
 ## Requirements
 
-- macOS 27. It builds on macOS 14 and later, but it is supported and tested on macOS 27 only.
-- Apple Silicon.
+- macOS 27 on Apple Silicon. That is the only setup it has been tested on. The package builds for macOS 14 and later, but nothing below macOS 27 has been run.
 - A trackpad, built-in or Magic Trackpad. Magic Mouse is not supported.
-- Command Line Tools for Xcode, to build it.
+- Command Line Tools for Xcode with Swift 6, to build it.
 
 ## Install
 
@@ -137,6 +136,8 @@ The settings window and the config file are two views of the same data. Changes 
 The file is `~/.config/opengestures/config.json`. If `XDG_CONFIG_HOME` is set, it is `$XDG_CONFIG_HOME/opengestures/config.json`. The app creates it with the defaults on first run. It is plain JSON with a schema version, so it works well in a dotfiles repo, and a symlink into that repo is fine. To set up a new Mac, copy the file over before you first launch the app.
 
 If you save a file that is not valid, the app shows the error and keeps running with the last valid configuration. It never overwrites a file it could not read.
+
+When you save from the settings window, the app rewrites the file in its canonical form. Keys it does not know, such as a note you added by hand, are dropped. Keep comments elsewhere.
 
 This is the default configuration:
 
@@ -304,7 +305,6 @@ It quits the app, resets its Accessibility permission, moves `~/Applications/Ope
 
 - `config.json` is executable. A `shellScript` or `appleScript` action runs with your user rights, and the app's Accessibility permission comes along for the ride. So shell script, AppleScript, Shortcut, file and URL actions only run after you approved them. What you set up in the settings window is approved by doing it. When one arrives any other way, for example from a dotfiles `git pull` or a config you copied, OpenGestures shows it in full and keeps it disabled until you click Allow. This guards against a config changing under you. A program that runs as you could still edit the approvals file, so keep the config at mode 0600 (`chmod 600 ~/.config/opengestures/config.json`) and read the diff before you pull a shared config.
 - The "OpenGestures Local Dev" certificate is self-signed and trusted for code signing for your user only. It lives in your login keychain. Anyone who can use its key can sign code that macOS treats as OpenGestures, which is why each build asks for your password and why you should click Allow, not Always Allow. `./scripts/remove-signing-cert.sh` removes the trust and deletes the certificate and key.
-- OpenGestures makes no network connections and sends no telemetry.
 - It reads touches through Apple's private MultitouchSupport framework. Private APIs can change in any macOS update.
 
 To report a vulnerability, see [SECURITY.md](SECURITY.md).
