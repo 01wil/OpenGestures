@@ -109,6 +109,8 @@ struct AccessibilityStatus: View {
 
 struct PermissionsPane: View {
     @Environment(AppModel.self) private var model
+    /// Nil until the user clicks: the help opens by itself while access is missing.
+    @ViewState private var helpOpen: Bool?
 
     var body: some View {
         let granted = model.accessibilityGranted
@@ -125,10 +127,21 @@ struct PermissionsPane: View {
                         Button("Allow Access…", action: System.requestAccessibility)
                     }
                 }
-            } footer: {
-                if !granted {
-                    Text("After rebuilding the app, macOS may need the switch turned off and on again.")
-                        .foregroundStyle(.secondary)
+            }
+            Section {
+                DisclosureGroup("Stopped working after a rebuild?", isExpanded: .init(get: { helpOpen ?? !granted }, set: { helpOpen = $0 })) {
+                    VStack(alignment: .leading, spacing: Design.spacing) {
+                        Text("macOS ties the permission to the app's signature, and a build without a signing certificate gets a new one each time. The switch can then look on while macOS ignores it.")
+                        VStack(alignment: .leading, spacing: Design.spacing / 2) {
+                            Text("1. Open Accessibility settings below.")
+                            Text("2. Select OpenGestures and click the minus button.")
+                            Text("3. Click the plus button and add ~/Applications/OpenGestures.app, or click Allow Access.")
+                        }
+                        Text("To avoid this, run ./scripts/make-signing-cert.sh once and rebuild. The README explains why.")
+                        Button("Open Accessibility Settings…") { NSWorkspace.shared.open(System.accessibilitySettings) }
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.top, Design.spacing / 2)
                 }
             }
         }

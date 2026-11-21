@@ -128,7 +128,7 @@ You can skip the certificate. The app then works the same, until you rebuild it.
 
 macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain, valid for 5 years, and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates. macOS asks for your login password to trust the certificate. If you cancel that dialog, run the script again. It asks again and does not create a duplicate. macOS also asks for the password on every build ("codesign wants to access key ..."). Click Allow, not Always Allow, so nothing else can sign with the key without asking. The app is signed with the hardened runtime.
 
-Without the certificate the build is ad-hoc signed, and an ad-hoc signature changes with every build. The switch in System Settings then still looks on, but macOS no longer honours it and no gesture action runs. To fix that, remove OpenGestures from the Accessibility list with the minus button and add it again. You can also sign with any other identity: `OG_SIGN_IDENTITY="Your Identity" ./scripts/build-app.sh`.
+Without the certificate the build is ad-hoc signed, and an ad-hoc signature changes with every build. The switch in System Settings then still looks on, but macOS no longer honours it and no gesture action runs. To fix that, remove OpenGestures from the Accessibility list with the minus button and add it again. The Permissions pane in the settings window shows the same steps. You can also sign with any other identity: `OG_SIGN_IDENTITY="Your Identity" ./scripts/build-app.sh`.
 
 ## Configuration
 

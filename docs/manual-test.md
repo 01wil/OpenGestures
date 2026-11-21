@@ -89,6 +89,7 @@ Add a binding for each in the settings window, with any gesture you like, and fi
 
 ## Permissions and sleep
 
+- [ ] The Permissions pane has a collapsed "Stopped working after a rebuild?" help that opens by itself while access is missing, lists the remove-and-add steps, and its button opens Accessibility settings.
 - [ ] Remove OpenGestures from the Accessibility list. The app shows it is missing, and gestures that need it do nothing.
 - [ ] Add it back. It recovers without a restart.
 - [ ] Put the Mac to sleep and wake it. Gestures work again.
