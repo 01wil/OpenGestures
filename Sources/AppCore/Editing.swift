@@ -90,6 +90,51 @@ extension Configuration {
     public mutating func setEnabled(_ enabled: Bool, id: Binding.ID) {
         if let i = bindings.firstIndex(where: { $0.id == id }) { bindings[i].enabled = enabled }
     }
+
+    /// Writes the editor's fields onto the binding as it is stored now, so what changed elsewhere meanwhile (such
+    /// as `enabled`) survives. A new binding is appended. False, and nothing changes, when an existing one is gone.
+    public mutating func save(_ fields: BindingFields, to binding: Binding, isNew: Bool) -> Bool {
+        if let i = bindings.firstIndex(where: { $0.id == binding.id }) {
+            bindings[i] = fields.applied(to: bindings[i])
+            return true
+        }
+        guard isNew else { return false }
+        bindings.append(fields.applied(to: binding))
+        return true
+    }
+}
+
+/// What the binding editor shows and changes. The rest of a binding (id, enabled) is left as it is.
+public struct BindingFields: Equatable, Sendable {
+    public var gesture: Gesture
+    public var modifiers: Modifiers
+    /// Empty means all apps.
+    public var apps: [String]
+    public var action: Action
+    /// Empty means no name.
+    public var name: String
+
+    public init(gesture: Gesture, modifiers: Modifiers, apps: [String], action: Action, name: String) {
+        self.gesture = gesture
+        self.modifiers = modifiers
+        self.apps = apps
+        self.action = action
+        self.name = name
+    }
+
+    public init(_ binding: Binding) {
+        self.init(gesture: binding.gesture, modifiers: binding.modifiers, apps: binding.apps, action: binding.action, name: binding.name ?? "")
+    }
+
+    public func applied(to binding: Binding) -> Binding {
+        var b = binding
+        b.gesture = gesture
+        b.modifiers = modifiers
+        b.apps = apps
+        b.action = action.normalized
+        b.name = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : name
+        return b
+    }
 }
 
 /// Bindings sharing one scope: global (no apps) first, then each distinct app set in order of first appearance.

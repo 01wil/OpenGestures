@@ -58,6 +58,52 @@ import Testing
     }
 }
 
+@Suite struct BindingFieldsTests {
+    @Test func savingEveryDefaultBindingUnchangedChangesNothing() {
+        var config = Configuration.default
+        for b in Configuration.default.bindings {
+            let saved = config.save(BindingFields(b), to: b, isNew: false)
+            #expect(saved)
+        }
+        #expect(config == Configuration.default)
+        #expect(config.bindings.first?.name == "Previous window")
+    }
+
+    @Test func theNameIsKeptEditedOrClearedWhenEmpty() {
+        let b = Binding(gesture: .tap(fingers: 3), action: .nextWindow, name: "Old")
+        var fields = BindingFields(b)
+        #expect(fields.name == "Old")
+        fields.name = "New"
+        #expect(fields.applied(to: b).name == "New")
+        fields.name = ""
+        #expect(fields.applied(to: b).name == nil)
+        #expect(BindingFields(Binding(gesture: .tap(fingers: 3), action: .nextWindow)).name == "")
+    }
+
+    @Test func savingKeepsWhatChangedOutsideTheEditor() {
+        let b = Binding(gesture: .tap(fingers: 3), action: .nextWindow)
+        var config = Configuration(bindings: [b])
+        config.setEnabled(false, id: b.id)
+        var fields = BindingFields(b)
+        fields.action = .previousWindow
+        let saved = config.save(fields, to: b, isNew: false)
+        #expect(saved)
+        #expect(config.bindings[0].enabled == false)
+        #expect(config.bindings[0].action == .previousWindow)
+    }
+
+    @Test func savingABindingThatWasRemovedMeanwhileDoesNotReAddIt() {
+        let b = Binding(gesture: .tap(fingers: 3), action: .nextWindow)
+        var config = Configuration(bindings: [])
+        let saved = config.save(BindingFields(b), to: b, isNew: false)
+        #expect(!saved)
+        #expect(config.bindings.isEmpty)
+        let added = config.save(BindingFields(b), to: b, isNew: true)
+        #expect(added)
+        #expect(config.bindings == [b])
+    }
+}
+
 @Suite struct KeyRecordingTests {
     @Test func buildsComboFromKeyEvent() {
         #expect(KeyCombo(keyCode: 17, characters: "t", modifiers: .command) == KeyCombo(key: "t", modifiers: .command))

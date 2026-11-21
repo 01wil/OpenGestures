@@ -15,7 +15,10 @@ struct BindingEditor: View {
     @ViewState private var specificApps: Bool
     @ViewState private var apps: [String]
     @ViewState private var action: Action
+    @ViewState private var name: String
     @ViewState private var recording = false
+    /// Why the last Save or Delete did not happen; the sheet stays open.
+    @ViewState private var problem: String?
 
     init(binding: GestureBinding, isNew: Bool) {
         original = binding
@@ -25,23 +28,24 @@ struct BindingEditor: View {
         _specificApps = State(initialValue: !binding.apps.isEmpty)
         _apps = State(initialValue: binding.apps)
         _action = State(initialValue: binding.action)
+        _name = State(initialValue: binding.name ?? "")
     }
 
-    private var result: GestureBinding {
-        var b = original
-        b.gesture = draft.gesture
-        b.modifiers = modifiers
-        b.apps = specificApps ? apps : []
-        b.action = action.normalized
-        b.name = nil
-        return b
+    private var fields: BindingFields {
+        BindingFields(gesture: draft.gesture, modifiers: modifiers, apps: specificApps ? apps : [], action: action, name: name)
     }
+
+    private var result: GestureBinding { fields.applied(to: original) }
 
     var body: some View {
         let others = model.config.bindings.filter { $0.id != original.id }
         VStack(spacing: 0) {
             Form {
+                if let problem {
+                    Section { Label(problem, systemImage: "xmark.octagon").foregroundStyle(.red) }
+                }
                 Section {
+                    TextField("Name", text: $name, prompt: Text("Optional"))
                     Picker("Gesture", selection: $draft.kind) {
                         ForEach(GestureKind.allCases, id: \.self) { Text($0.title) }
                     }
@@ -108,17 +112,13 @@ struct BindingEditor: View {
             HStack {
                 if !isNew {
                     Button("Delete", role: .destructive) {
-                        model.update { $0.remove(id: original.id) }
-                        dismiss()
+                        if model.update({ $0.remove(id: original.id) }) { dismiss() } else { problem = notSaved }
                     }
                 }
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Save") {
-                    model.update { $0.upsert(result) }
-                    dismiss()
-                }
+                Button("Save", action: save)
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
                 .disabled(action.missingField != nil || (specificApps && apps.isEmpty))
@@ -127,6 +127,22 @@ struct BindingEditor: View {
         }
         .frame(width: Design.paneWidth, height: Design.editorHeight)
         .onDisappear { if recording { model.engine.cancelRecording() } }
+    }
+
+    private var notSaved: String {
+        model.canEdit ? "Couldn’t save the config file." : "The config file has an error — fix or delete it first."
+    }
+
+    /// Saved onto the binding as it is stored now, not the copy this sheet opened with.
+    private func save() {
+        var gone = false
+        if !model.update({ gone = !$0.save(fields, to: original, isNew: isNew) }) {
+            problem = notSaved
+        } else if gone {
+            problem = "This gesture was removed from the config file meanwhile. Cancel to close."
+        } else {
+            dismiss()
+        }
     }
 
     private func toggleRecording() {

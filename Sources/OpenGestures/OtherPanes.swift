@@ -32,6 +32,7 @@ struct GeneralPane: View {
                     Text("When hidden, open OpenGestures again to get here.")
                 }
             }
+            .disabled(!model.canEdit)
             Section {
                 LabeledContent {
                     HStack {
@@ -62,9 +63,9 @@ struct GeneralPane: View {
                     precision = nil
                 }
             }
+            .disabled(!model.canEdit)
         }
         .formStyle(.grouped)
-        .disabled(!model.canEdit)
         .task { model.refreshLoginItem() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refreshLoginItem() }
         .frame(width: Design.paneWidth)
@@ -136,6 +137,7 @@ struct PermissionsPane: View {
                             Text("1. Open Accessibility settings below.")
                             Text("2. Select OpenGestures and click the minus button.")
                             Text("3. Click the plus button and add ~/Applications/OpenGestures.app, or click Allow Access.")
+                            Text("4. Turn the switch next to OpenGestures on.")
                         }
                         Text("To avoid this, run ./scripts/make-signing-cert.sh once and rebuild. The README explains why.")
                         Button("Open Accessibility Settings…") { NSWorkspace.shared.open(System.accessibilitySettings) }

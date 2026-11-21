@@ -16,26 +16,40 @@ import Testing
             binding(.tap(fingers: 2), .openURL("https://example.com/a")),
             binding(.tap(fingers: 3), .openFile(path: "/tmp/x/Safari.app")),
             binding(.tap(fingers: 4), .shortcut(name: "Morning")),
-            binding(.tap(fingers: 5), .appleScript("display notification \"hi\"")),
+            binding(.tap(fingers: 5), .appleScript("display notification \"hi\"\tdone")),
+            Binding(gesture: .tap(fingers: 1), apps: ["com.apple.Safari"], action: .openURL("https://example.com/b")),
         ])
         #expect(text.contains("⌘ 3-finger swipe up"))
         #expect(text.contains("touch /tmp/x\nopen -a Safari"))
         #expect(text.contains("https://example.com/a"))
         #expect(text.contains("/tmp/x/Safari.app"))
         #expect(text.contains("Morning"))
-        #expect(text.contains("display notification"))
+        #expect(text.contains("display notification \"hi\"\tdone"))
+        #expect(text.contains("com.apple.Safari"))
     }
 
-    @Test func longScriptsAreCappedAndLongListsSummarised() {
-        let long = String(repeating: "a", count: 2000)
+    @Test func longScriptsAndLongListsAreShownInFull() {
+        let long = String(repeating: "a", count: 2000) + "END"
         let one = ApprovalPrompt.details([binding(.tap(fingers: 2), .shellScript(long))])
-        #expect(one.count < 600)
-        #expect(one.contains("…"))
+        #expect(one.contains(long))
+        #expect(!one.contains("…"))
         let many = (1...12).map { binding(.tap(fingers: 2), .openURL("https://example.com/\($0)")) }
         let text = ApprovalPrompt.details(many)
-        #expect(text.contains("https://example.com/8"))
-        #expect(!text.contains("https://example.com/9"))
-        #expect(text.contains("and 4 more"))
+        for n in 1...12 { #expect(text.contains("https://example.com/\(n)\n") || text.hasSuffix("https://example.com/\(n)")) }
+        #expect(!text.contains("more"))
+    }
+
+    @Test func invisibleAndDirectionCharactersAreShownAsEscapes() {
+        let hidden = "echo safe\u{202E}txt.sh\u{200B}\u{2066}\u{FEFF}\u{2060}\u{0007}\r"
+        let text = ApprovalPrompt.details([
+            binding(.tap(fingers: 2), .shellScript(hidden)),
+            binding(.tap(fingers: 3), .openURL("https://example.com/\u{200F}x")),
+            Binding(gesture: .tap(fingers: 4), apps: ["com.apple\u{202E}.Safari"], action: .shortcut(name: "a\u{2069}")),
+        ])
+        for escape in ["\\u{202E}", "\\u{200B}", "\\u{2066}", "\\u{FEFF}", "\\u{2060}", "\\u{0007}", "\\u{000D}", "\\u{200F}", "\\u{2069}"] {
+            #expect(text.contains(escape), "missing \(escape)")
+        }
+        #expect(!text.unicodeScalars.contains { $0.properties.generalCategory == .format || ($0.properties.generalCategory == .control && $0 != "\n" && $0 != "\t") })
     }
 
     @Test func titleCountsTheActions() {

@@ -66,19 +66,36 @@ final class AppModel {
         if granted { engine.accessibilityGranted() }
     }
 
-    func update(_ change: (inout Configuration) -> Void) {
-        guard canEdit else { return }
+    /// Saves the change. False when it was not saved: the config file is invalid, or writing it failed.
+    @discardableResult
+    func update(_ change: (inout Configuration) -> Void) -> Bool {
+        guard canEdit else { return false }
         var next = config
         change(&next)
-        guard next != config else { return }
+        guard next != config else { return true }
         do {
-            // What the user changes in the window is approved by that act; the rest of the file is not.
-            try approvals.add(ActionApproval.approvedByEdit(old: config.bindings, new: next.bindings))
             try store.save(next)
-            apply(next)
         } catch {
             report(error.localizedDescription, kind: "save failed")
+            return false
         }
+        do {
+            // What the user changes in the window is approved by that act; the rest of the file is not.
+            // Approvals of bindings that no longer exist are dropped.
+            try approvals.add(ActionApproval.approvedByEdit(old: config.bindings, new: next.bindings),
+                              keepingOnly: ActionApproval.fingerprints(next.bindings))
+        } catch {
+            report(error.localizedDescription, kind: "approval failed")
+        }
+        apply(next)
+        return true
+    }
+
+    /// Switching a binding on never approves it: one that is not approved yet waits and the dialog asks.
+    func setEnabled(_ on: Bool, id: GestureBinding.ID) {
+        guard update({ $0.setEnabled(on, id: id) }), on, pending.contains(where: { $0.id == id }) else { return }
+        asked.formUnion(pending.map(ActionApproval.fingerprint))  // the reload of our save must not ask a second time
+        Task { @MainActor in self.reviewPending() }
     }
 
     /// The notice shows the message; the log gets only the kind publicly (messages can quote scripts, URLs, paths).
@@ -112,13 +129,13 @@ final class AppModel {
         #if DEBUG
         if ProcessInfo.processInfo.environment["OG_SNAPSHOT_DIR"] != nil { return }  // a modal dialog would block the renders
         #endif
-        let now = Set(pending.map { ActionApproval.fingerprint($0.action) })
+        let now = Set(pending.map(ActionApproval.fingerprint))
         guard !now.isSubset(of: asked) else { return }
         asked.formUnion(now)
         reviewPending()
     }
 
-    /// Lists the pending actions in full. Allow approves exactly those; Not now leaves them waiting.
+    /// Lists every pending action in full, nothing shortened. Allow approves exactly those; Not now leaves them waiting.
     func reviewPending() {
         let waiting = pending
         guard !waiting.isEmpty else { return }
@@ -127,7 +144,7 @@ final class AppModel {
         alert.messageText = ApprovalPrompt.title(count: waiting.count)
         alert.informativeText = ApprovalPrompt.message
         let scroll = NSTextView.scrollableTextView()
-        scroll.frame = NSRect(x: 0, y: 0, width: 440, height: 220)
+        scroll.frame = NSRect(x: 0, y: 0, width: 560, height: 360)
         scroll.borderType = .bezelBorder
         if let text = scroll.documentView as? NSTextView {
             text.isEditable = false
@@ -140,7 +157,7 @@ final class AppModel {
         NSApp.activate()
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
-            try approvals.add(Set(waiting.map { ActionApproval.fingerprint($0.action) }))
+            try approvals.add(Set(waiting.map(ActionApproval.fingerprint)))
             apply(config)
         } catch {
             report(error.localizedDescription, kind: "approval failed")

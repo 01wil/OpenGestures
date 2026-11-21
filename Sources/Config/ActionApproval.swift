@@ -15,26 +15,42 @@ public enum ActionApproval {
         }
     }
 
-    /// Identifies the action's content, so a changed script or URL is a new action.
-    public static func fingerprint(_ action: Action) -> String {
+    /// What an approval covers: the action and when and where it runs. Not the id, name or enabled switch.
+    private struct Approved: Encodable {
+        var action: Action
+        var gesture: Gesture
+        var modifiers: Modifiers
+        var apps: [String]
+    }
+
+    /// Identifies the action's content and its trigger and scope, so a changed script or URL, or the same one
+    /// moved to another gesture or app, is a new action.
+    public static func fingerprint(_ binding: Binding) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let data = (try? encoder.encode(action)) ?? Data()
+        let approved = Approved(action: binding.action, gesture: binding.gesture, modifiers: binding.modifiers, apps: binding.apps.sorted())
+        let data = (try? encoder.encode(approved)) ?? Data()
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// The fingerprints of every binding that needs approval, enabled or not: the approvals worth keeping.
+    public static func fingerprints(_ bindings: [Binding]) -> Set<String> {
+        Set(bindings.filter { requiresApproval($0.action) }.map(fingerprint))
     }
 
     /// Enabled bindings that need approval and do not have it. They must not run.
     public static func pending(_ bindings: [Binding], approved: Set<String>) -> [Binding] {
-        bindings.filter { $0.enabled && requiresApproval($0.action) && !approved.contains(fingerprint($0.action)) }
+        bindings.filter { $0.enabled && requiresApproval($0.action) && !approved.contains(fingerprint($0)) }
     }
 
-    /// What an edit made in the app approves: the actions of bindings it added, changed or switched on.
+    /// What an edit made in the app approves: bindings it added, or whose action, gesture, modifiers or apps it
+    /// changed, because the editor showed exactly that. Switching a binding on or renaming it approves nothing.
     public static func approvedByEdit(old: [Binding], new: [Binding]) -> Set<String> {
-        let before = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return Set(new.filter { b in
-            guard b.enabled, requiresApproval(b.action), let was = before[b.id] else { return b.enabled && requiresApproval(b.action) }
-            return !was.enabled || was.action != b.action
-        }.map { fingerprint($0.action) })
+        let before = Dictionary(old.map { ($0.id, fingerprint($0)) }, uniquingKeysWith: { first, _ in first })
+        return Set(new.filter { requiresApproval($0.action) }.compactMap { b in
+            let f = fingerprint(b)
+            return before[b.id] == f ? nil : f
+        })
     }
 }
 
@@ -57,12 +73,16 @@ public struct ApprovalStore: Sendable {
         return Set(file.approved)
     }
 
-    public func add(_ fingerprints: Set<String>) throws {
-        guard !fingerprints.isEmpty else { return }
-        let all = load().union(fingerprints)
+    /// Adds `fingerprints` and, when `current` is given, drops every approval not in it (bindings that are gone).
+    /// Writes only when that changes something.
+    public func add(_ fingerprints: Set<String>, keepingOnly current: Set<String>? = nil) throws {
+        let old = load()
+        var all = old.union(fingerprints)
+        if let current { all.formIntersection(current) }
+        guard all != old else { return }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try ConfigStore.createPrivateDirectory(url.deletingLastPathComponent())
+        try ConfigStore.createPrivateDirectory(url.deletingLastPathComponent(), tightenExisting: true)
         try ConfigStore.writePrivately(try encoder.encode(File(approved: all.sorted())), to: url)
     }
 }

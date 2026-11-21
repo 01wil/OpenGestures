@@ -81,7 +81,7 @@ struct GesturesPane: View {
                         Section {
                             ForEach(group.bindings) { b in
                                 BindingRow(binding: b, waiting: model.pending.contains { $0.id == b.id }) { on in
-                                    model.update { $0.setEnabled(on, id: b.id) }
+                                    model.setEnabled(on, id: b.id)
                                 }
                                 .contentShape(Rectangle())
                                 .onTapGesture { if model.canEdit { editing = Editing(binding: b, isNew: false) } }

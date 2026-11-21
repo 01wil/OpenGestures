@@ -49,11 +49,26 @@ public struct ConfigStore: Sendable {
         }
     }
 
-    /// Creates `dir` (and missing parents) with mode 0700 for the last component; an existing one is left as is.
-    static func createPrivateDirectory(_ dir: URL) throws {
-        guard !FileManager.default.fileExists(atPath: dir.path) else { return }
+    /// Creates `dir` (and missing parents) with mode 0700 for the last component. An existing one is left as is,
+    /// unless `tightenExisting` (only for a folder that is the app's own): then a real folder, not a symlink,
+    /// owned by this user with group or other access is set to 0700.
+    static func createPrivateDirectory(_ dir: URL, tightenExisting: Bool = false) throws {
+        guard !FileManager.default.fileExists(atPath: dir.path) else {
+            if tightenExisting { tighten(dir) }
+            return
+        }
         try FileManager.default.createDirectory(at: dir.deletingLastPathComponent(), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+    }
+
+    /// Works on the opened folder itself, so a symlink swapped in meanwhile is never followed.
+    private static func tighten(_ dir: URL) {
+        let fd = open(dir.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { return }
+        defer { close(fd) }
+        var info = stat()
+        guard fstat(fd, &info) == 0, info.st_uid == getuid(), info.st_mode & 0o077 != 0 else { return }
+        fchmod(fd, 0o700)
     }
 
     /// Atomic (temp file + rename) and never more readable than 0600, not even briefly.

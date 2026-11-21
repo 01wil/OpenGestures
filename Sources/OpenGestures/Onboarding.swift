@@ -9,30 +9,31 @@ struct OnboardingView: View {
 
     @Environment(AppModel.self) private var model
     let done: () -> Void
-    private let steps: [Step]
     @ViewState private var index = 0
 
-    init(done: @escaping () -> Void) {
-        self.done = done
-        let clash = !SystemGestureConflicts.findOnThisMac(Configuration.default.bindings).isEmpty
-        steps = [.welcome, .permission] + (clash ? [.conflict] : [])
-    }
+    init(done: @escaping () -> Void) { self.done = done }
+
+    /// Clashes of the user's own gestures with macOS gestures that are switched on.
+    private var conflicts: [String] { SystemGestureConflicts.findOnThisMac(model.config.bindings).map(\.message) }
 
     var body: some View {
+        let conflicts = conflicts
+        let steps: [Step] = [.welcome, .permission] + (conflicts.isEmpty ? [] : [.conflict])
+        let index = min(index, steps.count - 1)
         let last = index == steps.count - 1
         VStack(spacing: Design.spacing) {
             Spacer()
             switch steps[index] {
             case .welcome: welcome
             case .permission: permission
-            case .conflict: conflict
+            case .conflict: conflict(conflicts)
             }
             Spacer()
             HStack {
                 if !last { Button("Skip", action: done) }
                 Spacer()
-                if index > 0 { Button("Back") { index -= 1 } }
-                Button(last ? "Done" : "Continue") { if last { done() } else { index += 1 } }
+                if index > 0 { Button("Back") { self.index = index - 1 } }
+                Button(last ? "Done" : "Continue") { if last { done() } else { self.index = index + 1 } }
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -96,10 +97,11 @@ struct OnboardingView: View {
         .multilineTextAlignment(.center)
     }
 
-    private var conflict: some View {
+    private func conflict(_ messages: [String]) -> some View {
         VStack(spacing: Design.spacing) {
-            header("exclamationmark.triangle", "macOS Uses This Swipe Too")
-            Text("Your Mac switches desktops with a 4-finger swipe, so both would happen. You can turn it off or change it to 3 fingers in Trackpad settings.")
+            header("exclamationmark.triangle", "macOS Uses These Gestures Too")
+            ForEach(messages, id: \.self) { Text($0) }
+            Text("Both would happen. You can turn the macOS gesture off or change it in Trackpad settings.")
                 .foregroundStyle(.secondary)
             Button("Open Trackpad Settings…") { NSWorkspace.shared.open(System.trackpadSettings) }
         }
