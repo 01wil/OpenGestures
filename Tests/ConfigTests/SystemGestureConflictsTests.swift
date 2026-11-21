@@ -12,7 +12,7 @@ import Model
     @Test func fourFingerHorizontalSwipeConflictsWithDefaults() {
         let c = find(Configuration.default.bindings, builtIn: ["TrackpadFourFingerHorizSwipeGesture": 2])
         #expect(c.count == 1)
-        #expect(c.first?.bindingIDs == Configuration.default.bindings.map(\.id))
+        #expect(c.first?.bindingIDs == Configuration.default.bindings.prefix(6).map(\.id))  // 4- and 5-finger horizontal swipes
         #expect(c.first?.message == "4-finger swipe left/right is also used by macOS to switch between full-screen apps and desktops, and macOS reacts to 5 fingers too (System Settings › Trackpad › More Gestures).")
     }
 

@@ -75,7 +75,7 @@ public struct Configuration: Codable, Equatable, Sendable {
         return config
     }
 
-    public static let `default` = Configuration(bindings: [
+    public static let `default` = Configuration(settings: Settings(launchAtLogin: true, sensitivity: 0.65), bindings: [
         Binding(id: UUID(uuidString: "0F1E2D3C-0001-4000-8000-000000000001")!, gesture: .swipe(fingers: 4, direction: .left),
                 action: .previousWindow, name: "Previous window"),
         Binding(id: UUID(uuidString: "0F1E2D3C-0002-4000-8000-000000000002")!, gesture: .swipe(fingers: 4, direction: .right),
@@ -84,5 +84,21 @@ public struct Configuration: Codable, Equatable, Sendable {
                 modifiers: .command, action: .previousDisplay, name: "Move window to previous display"),
         Binding(id: UUID(uuidString: "0F1E2D3C-0004-4000-8000-000000000004")!, gesture: .swipe(fingers: 4, direction: .right),
                 modifiers: .command, action: .nextDisplay, name: "Move window to next display"),
+        Binding(id: UUID(uuidString: "6349CB89-9A09-4589-864E-A2FA5024B2CF")!, gesture: .swipe(fingers: 5, direction: .right),
+                action: .windowLayout(.rightHalf)),
+        Binding(id: UUID(uuidString: "B0B37239-E0BC-4BA1-A4E4-2F9798C17D7F")!, gesture: .swipe(fingers: 5, direction: .left),
+                action: .windowLayout(.leftHalf)),
+        Binding(id: UUID(uuidString: "38FE07E9-9CC1-49B7-92F2-06E9729CD628")!, gesture: .tap(fingers: 4),
+                action: .windowLayout(.maximize)),
+        Binding(id: UUID(uuidString: "FE46E500-D1E8-45C3-876B-BF390E278544")!, gesture: .tap(fingers: 5),
+                action: .windowLayout(.center)),
+        Binding(id: UUID(uuidString: "9EB22F46-DC30-499E-B4DB-A6B3F0C6034C")!, gesture: .tipTap(side: .right),
+                action: .systemKey(.nextTrack)),
+        Binding(id: UUID(uuidString: "5323397C-6E81-4CE7-B925-1430D143D0D5")!, gesture: .tipTap(side: .left),
+                action: .systemKey(.previousTrack)),
+        Binding(id: UUID(uuidString: "04B9F741-B0A1-4196-B206-AA15C09E9913")!, gesture: .edgeSlide(edge: .right),
+                action: .adjust(.volume)),
+        Binding(id: UUID(uuidString: "C5BA5ADD-6FCC-4B8D-85BA-ED3F353B77FC")!, gesture: .edgeSlide(edge: .left),
+                action: .adjust(.brightness)),
     ])
 }

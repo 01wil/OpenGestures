@@ -13,13 +13,22 @@ import Model
         #expect(try decoded.encoded() == data)
     }
 
-    @Test func defaultHasTheFourShippedBindings() {
+    @Test func defaultHasTheShippedBindings() {
         let b = Configuration.default.bindings
-        #expect(b.map(\.gesture.id) == ["swipe.4.left", "swipe.4.right", "swipe.4.left", "swipe.4.right"])
-        #expect(b.map(\.modifiers) == [[], [], .command, .command])
-        #expect(b.map(\.action) == [.previousWindow, .nextWindow, .previousDisplay, .nextDisplay])
-        #expect(b.allSatisfy { $0.isGlobal && $0.enabled && $0.name != nil })
-        #expect(Set(b.map(\.id)).count == 4)
+        #expect(b.map(\.gesture.id) == [
+            "swipe.4.left", "swipe.4.right", "swipe.4.left", "swipe.4.right",
+            "swipe.5.right", "swipe.5.left", "tap.4", "tap.5",
+            "tiptap.right", "tiptap.left", "edgeslide.right", "edgeslide.left",
+        ])
+        #expect(b.map(\.modifiers) == [[], [], .command, .command] + Array(repeating: [], count: 8))
+        #expect(b.map(\.action) == [
+            .previousWindow, .nextWindow, .previousDisplay, .nextDisplay,
+            .windowLayout(.rightHalf), .windowLayout(.leftHalf), .windowLayout(.maximize), .windowLayout(.center),
+            .systemKey(.nextTrack), .systemKey(.previousTrack), .adjust(.volume), .adjust(.brightness),
+        ])
+        #expect(b.allSatisfy { $0.isGlobal && $0.enabled })
+        #expect(Set(b.map(\.id)).count == 12)
+        #expect(Configuration.default.settings == Settings(launchAtLogin: true, sensitivity: 0.65))
         #expect(Configuration.default.version == Configuration.currentVersion)
     }
 

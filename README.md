@@ -8,12 +8,16 @@ OpenGestures is a small menu bar app. You pick a gesture, optionally hold modifi
 
 ## What it does
 
-Out of the box, two sets of gestures are bound.
+Out of the box, these gestures are bound.
 
 - Swipe left or right with 4 fingers to jump to the previous or next recently used window. It goes straight there, including to windows of other apps and other Spaces. See "Walking through windows" below.
 - Hold ⌘ and swipe left or right with 4 fingers to move the focused window to the previous or next display.
+- Swipe left or right with 5 fingers to put the focused window on the left or right half of the screen.
+- Tap with 4 fingers to maximize the focused window, and tap again to restore it. Tap with 5 fingers to center it.
+- Rest one finger and tap a second one to its right or left (TipTap) for the next or previous track.
+- Slide one finger along the right edge for volume, or along the left edge for brightness.
 
-Both are ordinary bindings. Edit them, remove them, or add your own in the settings window (⌘,) or in the config file.
+All of them are ordinary bindings. Edit them, remove them, or add your own in the settings window (⌘,) or in the config file.
 
 ## Supported gestures
 
@@ -85,21 +89,26 @@ Install the Command Line Tools if you do not have them:
 xcode-select --install
 ```
 
-Clone the repository, create a local signing certificate (once), build the app and install it to `~/Applications`:
+Clone the repository, build the app and install it to `~/Applications`:
 
 ```
 git clone https://github.com/01wil/OpenGestures.git
 cd OpenGestures
-./scripts/make-signing-cert.sh
 ./scripts/build-app.sh
 ./scripts/install.sh
 ```
+
+The build prints a number of compiler and linker warnings. They are harmless. It ends with a line saying where the app was built.
+
+Optional, recommended if you will rebuild: before the build, run `./scripts/make-signing-cert.sh` once to create a local signing certificate. See "Why the signing certificate" below.
 
 Open OpenGestures from `~/Applications` and click Allow Access when asked, then turn OpenGestures on in System Settings › Privacy & Security › Accessibility. The status in the app updates live, so no restart is needed.
 
 ### Why the signing certificate
 
-macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain, valid for 5 years, and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates. macOS asks for your login password to trust the certificate, and again on every build ("codesign wants to access key ..."). Click Allow, not Always Allow, so nothing else can sign with the key without asking. The app is signed with the hardened runtime.
+You can skip the certificate. The app then works the same, until you rebuild it.
+
+macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain, valid for 5 years, and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates. macOS asks for your login password to trust the certificate. If you cancel that dialog, run the script again. It asks again and does not create a duplicate. macOS also asks for the password on every build ("codesign wants to access key ..."). Click Allow, not Always Allow, so nothing else can sign with the key without asking. The app is signed with the hardened runtime.
 
 Without the certificate the build is ad-hoc signed, and an ad-hoc signature changes with every build. The switch in System Settings then still looks on, but macOS no longer honours it and no gesture action runs. To fix that, remove OpenGestures from the Accessibility list with the minus button and add it again. You can also sign with any other identity: `OG_SIGN_IDENTITY="Your Identity" ./scripts/build-app.sh`.
 
@@ -151,12 +160,76 @@ This is the default configuration:
       "id" : "0F1E2D3C-0004-4000-8000-000000000004",
       "modifiers" : [ "cmd" ],
       "name" : "Move window to next display"
+    },
+    {
+      "action" : { "layout" : "rightHalf", "type" : "windowLayout" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "swipe.5.right",
+      "id" : "6349CB89-9A09-4589-864E-A2FA5024B2CF",
+      "modifiers" : []
+    },
+    {
+      "action" : { "layout" : "leftHalf", "type" : "windowLayout" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "swipe.5.left",
+      "id" : "B0B37239-E0BC-4BA1-A4E4-2F9798C17D7F",
+      "modifiers" : []
+    },
+    {
+      "action" : { "layout" : "maximize", "type" : "windowLayout" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "tap.4",
+      "id" : "38FE07E9-9CC1-49B7-92F2-06E9729CD628",
+      "modifiers" : []
+    },
+    {
+      "action" : { "layout" : "center", "type" : "windowLayout" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "tap.5",
+      "id" : "FE46E500-D1E8-45C3-876B-BF390E278544",
+      "modifiers" : []
+    },
+    {
+      "action" : { "key" : "nextTrack", "type" : "systemKey" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "tiptap.right",
+      "id" : "9EB22F46-DC30-499E-B4DB-A6B3F0C6034C",
+      "modifiers" : []
+    },
+    {
+      "action" : { "key" : "previousTrack", "type" : "systemKey" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "tiptap.left",
+      "id" : "5323397C-6E81-4CE7-B925-1430D143D0D5",
+      "modifiers" : []
+    },
+    {
+      "action" : { "target" : "volume", "type" : "adjust" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "edgeslide.right",
+      "id" : "04B9F741-B0A1-4196-B206-AA15C09E9913",
+      "modifiers" : []
+    },
+    {
+      "action" : { "target" : "brightness", "type" : "adjust" },
+      "apps" : [],
+      "enabled" : true,
+      "gesture" : "edgeslide.left",
+      "id" : "C5BA5ADD-6FCC-4B8D-85BA-ED3F353B77FC",
+      "modifiers" : []
     }
   ],
   "settings" : {
     "enabled" : true,
-    "launchAtLogin" : false,
-    "sensitivity" : 0.5,
+    "launchAtLogin" : true,
+    "sensitivity" : 0.65,
     "showMenuBarIcon" : true
   },
   "version" : 1

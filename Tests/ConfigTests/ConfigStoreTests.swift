@@ -101,7 +101,7 @@ func makeTempDir() throws -> URL {
         defer { watcher.cancel() }
 
         var edited = Configuration.default
-        edited.settings.launchAtLogin = true
+        edited.settings.showMenuBarIcon = false
         let temp = url.deletingLastPathComponent().appendingPathComponent("config.json.swp")
         try edited.encoded().write(to: temp)
         _ = try FileManager.default.replaceItemAt(url, withItemAt: temp)

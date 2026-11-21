@@ -52,7 +52,7 @@ Add a binding for each in the settings window, with any gesture you like, and fi
 
 ## Config file
 
-- [ ] `~/.config/opengestures/config.json` exists after first run and contains the four default bindings.
+- [ ] `~/.config/opengestures/config.json` exists after first run and contains the twelve default bindings.
 - [ ] Open the file in a text editor, change a binding's action, and save. Within 2 seconds the new action runs, with no restart.
 - [ ] Change a binding in the settings window. The file changes to match.
 - [ ] Save broken JSON. The UI reports the error, the previous bindings keep working, and the file is not overwritten.
