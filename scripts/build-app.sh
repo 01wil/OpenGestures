@@ -47,6 +47,8 @@ identity=${OG_SIGN_IDENTITY:--}
 # Extended attributes (e.g. Finder info on copied resources) make codesign refuse the bundle.
 xattr -cr "$app"
 codesign --force -s "$identity" "$app"
+# Keep the build copy out of Launchpad and "Open With"; only the installed app should show up.
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$(pwd)/$app" 2>/dev/null || true
 
 echo "Built $(pwd)/$app ($version, signed with ${OG_SIGN_IDENTITY:-ad-hoc identity})"
 if [ -z "${OG_SIGN_IDENTITY:-}" ]; then
