@@ -72,11 +72,18 @@ public final class WindowController {
         return AX.setFrame(DisplayGeometry.ax(fromAppKit: target, primaryMaxY: Self.primaryMaxY), of: w)
     }
 
-    /// Focused window of the front app, its AX frame, and the screen it mostly sits on.
+    /// Focused window of the front app, its AX frame, and the screen it mostly sits on. When the front
+    /// app offers no window (e.g. a system overlay took focus during a 5-finger gesture), falls back to
+    /// the most recently used window.
     private func focusedWindowOnScreen() -> (AXUIElement, CGRect, [NSScreen], Int)? {
-        guard AX.trusted, let app = NSWorkspace.shared.frontmostApplication,
-              app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
-              let w = AX.focusedWindow(pid: app.processIdentifier), let ax = AX.frame(of: w) else { return nil }
+        guard AX.trusted else { return nil }
+        var window: AXUIElement?
+        if let app = NSWorkspace.shared.frontmostApplication, app.activationPolicy == .regular,
+           app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            window = AX.focusedWindow(pid: app.processIdentifier)
+        }
+        if window == nil, let (id, pid) = tracker.current() { window = AX.window(id: id, pid: pid) }
+        guard let w = window, let ax = AX.frame(of: w) else { return nil }
         let screens = NSScreen.screens
         let rect = DisplayGeometry.appKit(fromAX: ax, primaryMaxY: Self.primaryMaxY)
         func overlap(_ s: NSScreen) -> CGFloat { let r = s.frame.intersection(rect); return r.isNull ? 0 : r.width * r.height }

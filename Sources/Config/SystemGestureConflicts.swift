@@ -43,8 +43,14 @@ public enum SystemGestureConflicts {
              matches: { pinch($0, 4) },
              message: "4-finger pinch is also used by macOS for Launchpad and Show Desktop (\(moreGestures))."),
         Rule(key: "TrackpadFiveFingerPinchGesture",
-             matches: { pinch($0, 5) },
-             message: "5-finger pinch is also used by macOS for Launchpad and Show Desktop (\(moreGestures))."),
+             // macOS starts tracking its pinch as soon as five fingers touch, so any 5-finger gesture can trip it.
+             matches: { g in
+                 switch g {
+                 case let .swipe(n, _), let .tap(n), let .pinch(n, _): n == 5
+                 default: false
+                 }
+             },
+             message: "5-finger gestures can also trigger macOS's 5-finger pinch for Launchpad and Show Desktop. Turn it off under \(moreGestures) if they misbehave."),
         Rule(key: "TrackpadThreeFingerTapGesture",
              matches: { $0 == .tap(fingers: 3) },
              message: "3-finger tap is also used by macOS for Look up & data detectors (\(moreGestures))."),

@@ -8,7 +8,9 @@ import Foundation
 /// seconds apart form a session that walks a frozen snapshot: `previous` goes one step older,
 /// `next` one step newer, both wrapping. During a session `order` is not touched: the activation
 /// echo of our own focus change (`activated(target)`) is ignored. When the session times out, or a
-/// different window is activated, the session's current target is committed to the front.
+/// different window is activated, the session is committed by rotating the snapshot so its target is
+/// first. Rotation keeps the ring's order, so repeated slow `previous` calls visit every window (the
+/// window left behind goes to the back) instead of toggling between two, and `next` undoes `previous`.
 public struct WindowHistory<ID: Hashable> {
     public static var defaultSessionTimeout: TimeInterval { 1.0 }
 
@@ -55,8 +57,14 @@ public struct WindowHistory<ID: Hashable> {
 
     private mutating func expire(_ now: TimeInterval) {
         guard let s = session, now - s.last >= sessionTimeout else { return }
+        commit(s)
+    }
+
+    private mutating func commit(_ s: (snapshot: [ID], cursor: Int, last: TimeInterval)) {
         session = nil
-        promote(s.snapshot[s.cursor])
+        // Keep only windows still in `order` (some may have closed during the session).
+        let rotated = Array(s.snapshot[s.cursor...] + s.snapshot[..<s.cursor]).filter(order.contains)
+        order = rotated + order.filter { !rotated.contains($0) }
     }
 
     private mutating func promote(_ id: ID) {

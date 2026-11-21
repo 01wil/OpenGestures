@@ -157,6 +157,8 @@ struct WindowCommandsAdapter: WindowCommands {
             ? MainActor.assumeIsolated { body(controller) }
             : DispatchQueue.main.sync { MainActor.assumeIsolated { body(controller) } }
         guard ok else {
+            let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"
+            log.error("window action failed, frontmost app: \(front, privacy: .public)")
             throw ActionError.failed(AXIsProcessTrusted() ? failure : "OpenGestures needs Accessibility access to control windows (Settings › Permissions).")
         }
     }

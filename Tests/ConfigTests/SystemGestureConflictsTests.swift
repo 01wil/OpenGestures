@@ -46,6 +46,13 @@ import Model
         #expect(conflict(.edgeSwipe(edge: .right), "TrackpadTwoFingerFromRightEdgeSwipeGesture", 3).count == 1)
     }
 
+    @Test func anyFiveFingerGestureConflictsWithFiveFingerPinch() {
+        let key = ["TrackpadFiveFingerPinchGesture": 2]
+        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .left), action: .nextWindow)], builtIn: key).count == 1)
+        #expect(find([Binding(gesture: .tap(fingers: 5), action: .nextWindow)], builtIn: key).count == 1)
+        #expect(find([Binding(gesture: .tap(fingers: 4), action: .nextWindow)], builtIn: key).isEmpty)
+    }
+
     @Test func unrelatedGesturesNeverConflict() {
         let all = ["TrackpadFourFingerHorizSwipeGesture", "TrackpadFourFingerVertSwipeGesture", "TrackpadFourFingerPinchGesture",
                    "TrackpadThreeFingerDrag", "TrackpadThreeFingerTapGesture"]

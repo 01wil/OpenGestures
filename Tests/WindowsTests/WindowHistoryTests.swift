@@ -50,13 +50,28 @@ import Testing
         #expect(h.next(now: 10.6) == 4)
     }
 
-    @Test func slowSwipeCommitsAndTogglesBack() {
-        var h = history([1, 2, 3])
+    @Test func slowPreviousCyclesThroughAllWindows() {
+        var h = history([1, 2, 3])          // order 3,2,1
         #expect(h.previous(now: 10) == 2)
         h.activated(2, now: 10.1)
-        // after the session timeout the target is the new front: previous toggles back
-        #expect(h.previous(now: 20) == 3)
-        #expect(h.order == [2, 3, 1])
+        // after the timeout the ring rotates: the window we left goes to the back, so no toggling
+        #expect(h.previous(now: 20) == 1)
+        #expect(h.order == [2, 1, 3])
+        h.activated(1, now: 20.1)
+        #expect(h.previous(now: 30) == 3)
+    }
+
+    @Test func slowNextCyclesThroughAllWindows() {
+        var h = history([1, 2, 3])          // order 3,2,1
+        #expect(h.next(now: 10) == 1)
+        #expect(h.next(now: 20) == 2)
+        #expect(h.next(now: 30) == 3)
+    }
+
+    @Test func nextUndoesPrevious() {
+        var h = history([1, 2, 3, 4])       // order 4,3,2,1
+        #expect(h.previous(now: 10) == 3)
+        #expect(h.next(now: 20) == 4)
     }
 
     @Test func foreignActivationEndsSessionAndReorders() {
