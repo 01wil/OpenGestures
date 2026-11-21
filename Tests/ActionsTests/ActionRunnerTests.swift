@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
 import Testing
@@ -101,6 +102,15 @@ import Model
         #expect(f.errors == [.scriptFailed("boom")])
     }
 
+    @Test func layoutScanCoversTheIsoKeyAndUsesTheMask() {
+        // Fake layout: key 50 produces "<" (German ISO key).
+        #expect(KeyMap.scan(for: "<", character: { $0 == 50 ? "<" : nil }) == 50)
+        #expect(KeyMap.scan(for: "q", character: { $0 == 12 ? "q" : nil }) == 12)
+        #expect(KeyMap.scan(for: "x", character: { _ in nil }) == nil)
+        #expect(LiveKeyboardLayout.noDeadKeys == OptionBits(kUCKeyTranslateNoDeadKeysMask))
+        #expect(LiveKeyboardLayout.noDeadKeys != 0)
+    }
+
     @Test func liveLauncherReportsStderrAndExitStatus() async {
         let err = await withCheckedContinuation { c in
             ProcessLauncher().launch("/bin/sh", arguments: ["-c", "echo oops >&2; exit 3"], timeout: 5) { c.resume(returning: $0) }
@@ -120,6 +130,62 @@ import Model
             ProcessLauncher().launch("/bin/sleep", arguments: ["10"], timeout: 0.2) { c.resume(returning: $0) }
         }
         #expect(err == .timedOut)
+    }
+
+    private func run(_ script: String, timeout: TimeInterval) async -> (ActionError?, TimeInterval) {
+        let start = Date()
+        let err = await withCheckedContinuation { c in
+            ProcessLauncher().launch("/bin/sh", arguments: ["-c", script], timeout: timeout) { c.resume(returning: $0) }
+        }
+        return (err, Date().timeIntervalSince(start))
+    }
+
+    private func alive(_ pidFile: String) -> Bool {
+        guard let text = try? String(contentsOfFile: pidFile, encoding: .utf8),
+              let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+        return kill(pid, 0) == 0
+    }
+
+    private func waitDead(_ pidFile: String, within seconds: TimeInterval) async -> Bool {
+        let end = Date().addingTimeInterval(seconds)
+        while Date() < end {
+            if !alive(pidFile) { return true }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return !alive(pidFile)
+    }
+
+    private func pidFile() -> String { NSTemporaryDirectory() + "og-launch-\(UUID().uuidString).pid" }
+
+    @Test func backgroundJobDoesNotBlockOrTimeOut() async {
+        let file = pidFile()
+        let (err, elapsed) = await run("sleep 4 & echo $! > \(file); exit 0", timeout: 10)
+        #expect(err == nil)
+        #expect(elapsed < 2)
+        if let t = try? String(contentsOfFile: file, encoding: .utf8), let pid = pid_t(t.trimmingCharacters(in: .whitespacesAndNewlines)) { kill(pid, SIGKILL) }
+    }
+
+    @Test func timeoutKillsTheWholeProcessGroup() async {
+        let file = pidFile()
+        let (err, elapsed) = await run("sleep 30 & echo $! > \(file); wait", timeout: 0.3)
+        #expect(err == .timedOut)
+        #expect(elapsed < 2)
+        #expect(await waitDead(file, within: 3))
+    }
+
+    @Test func timeoutEscalatesToKillWhenTermIsIgnored() async {
+        let file = pidFile()
+        let (err, elapsed) = await run("trap '' TERM; sleep 30 & echo $! > \(file); wait", timeout: 0.3)
+        #expect(err == .timedOut)
+        #expect(elapsed < 5)
+        #expect(await waitDead(file, within: 5))
+    }
+
+    @Test func stderrIsCapped() async {
+        let (err, _) = await run("head -c 300000 /dev/zero | tr '\\0' x >&2; exit 1", timeout: 10)
+        guard case .scriptFailed(let text) = err else { Issue.record("got \(String(describing: err))"); return }
+        #expect(text.count <= 64 * 1024)
+        #expect(text.hasPrefix("xxx"))
     }
 
     @Test func liveLauncherMissingExecutable() async {

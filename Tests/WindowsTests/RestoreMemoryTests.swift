@@ -88,6 +88,36 @@ import Testing
         m.forget(1)
         #expect(m.original(of: 1) == nil)
     }
+
+    @Test func snappedWindowRestoresOnSecondTap() {
+        var m = RestoreMemory<Int>()
+        let snapped = CGRect(x: 0, y: 25, width: 700, height: 860)
+        _ = m.toggle(1, current: original, target: half)
+        m.placed(1, at: snapped)
+        let r = m.toggle(1, current: snapped, target: half)
+        #expect(r == .restore(original))
+        #expect(m.original(of: 1) == nil)
+    }
+
+    @Test func atPlacedFrameButOtherLayoutRequestedApplies() {
+        var m = RestoreMemory<Int>()
+        let snapped = CGRect(x: 0, y: 25, width: 700, height: 860)
+        _ = m.toggle(1, current: original, target: half)
+        m.placed(1, at: snapped)
+        let r = m.toggle(1, current: snapped, target: screen)
+        #expect(r == .apply)
+        #expect(m.original(of: 1) == original)
+    }
+
+    @Test func reapplyingDoesNotOverwritePlaced() {
+        var m = RestoreMemory<Int>()
+        let snapped = CGRect(x: 0, y: 25, width: 700, height: 860)
+        _ = m.toggle(1, current: original, target: half)
+        m.placed(1, at: snapped)
+        _ = m.toggle(1, current: CGRect(x: 300, y: 300, width: 400, height: 300), target: half)
+        let r = m.toggle(1, current: snapped, target: half)
+        #expect(r == .restore(original))
+    }
 }
 
 @Suite struct DragRestoreFrameTests {

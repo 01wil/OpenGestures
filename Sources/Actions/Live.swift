@@ -58,44 +58,113 @@ public struct SystemEventPoster: EventPosting {
     }
 }
 
-/// Runs a child process off the calling thread; stderr (trimmed) becomes the error text.
+/// Runs a child process without blocking a thread: it is spawned in its own process group, its exit is
+/// watched through a dispatch source, and stderr (capped, trimmed) becomes the error text. Background
+/// jobs the script leaves behind neither delay nor fail it; on timeout the whole group gets SIGTERM, then
+/// SIGKILL two seconds later.
 public struct ProcessLauncher: ProcessLaunching {
+    static let stderrCap = 64 * 1024
+    static let killGrace: TimeInterval = 2
+
     public init() {}
 
     public func launch(_ executable: String, arguments: [String], timeout: TimeInterval,
                        completion: @escaping @Sendable (ActionError?) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executable)
-            process.arguments = arguments
-            let stderr = Pipe()
-            process.standardError = stderr
-            process.standardOutput = FileHandle.nullDevice
-            process.standardInput = FileHandle.nullDevice
-            do { try process.run() } catch {
-                completion(.launchFailed(error.localizedDescription))
-                return
+        var fds: [Int32] = [0, 0]
+        guard pipe(&fds) == 0 else { return completion(.launchFailed(String(cString: strerror(errno)))) }
+        var actions: posix_spawn_file_actions_t?
+        var attr: posix_spawnattr_t?
+        posix_spawn_file_actions_init(&actions)
+        posix_spawnattr_init(&attr)
+        defer { posix_spawn_file_actions_destroy(&actions); posix_spawnattr_destroy(&attr) }
+        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0)
+        posix_spawn_file_actions_adddup2(&actions, fds[1], 2)
+        posix_spawn_file_actions_addclose(&actions, fds[0])
+        posix_spawn_file_actions_addclose(&actions, fds[1])
+        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP))
+        posix_spawnattr_setpgroup(&attr, 0)
+        let argv = ([executable] + arguments).map { strdup($0) } + [nil]
+        defer { argv.forEach { free($0) } }
+        var pid: pid_t = 0
+        let rc = posix_spawn(&pid, executable, &actions, &attr, argv, environ)
+        close(fds[1])
+        guard rc == 0 else {
+            close(fds[0])
+            return completion(.launchFailed(String(cString: strerror(rc))))
+        }
+        Job(pid: pid, readFD: fds[0], completion: completion).start(timeout: timeout)
+    }
+
+    /// All state is touched on `queue` only.
+    private final class Job: @unchecked Sendable {
+        let pid: pid_t
+        let readFD: Int32
+        let completion: @Sendable (ActionError?) -> Void
+        let queue = DispatchQueue(label: "opengestures.process")
+        var output = Data()
+        var exited = false
+        var reported = false
+        var reader: DispatchSourceRead?
+        var exitSource: DispatchSourceProcess?
+
+        init(pid: pid_t, readFD: Int32, completion: @escaping @Sendable (ActionError?) -> Void) {
+            self.pid = pid; self.readFD = readFD; self.completion = completion
+        }
+
+        func start(timeout: TimeInterval) {
+            _ = fcntl(readFD, F_SETFL, fcntl(readFD, F_GETFL) | O_NONBLOCK)
+            let reader = DispatchSource.makeReadSource(fileDescriptor: readFD, queue: queue)
+            reader.setEventHandler { [self] in if !drain() { reader.cancel() } }
+            reader.setCancelHandler { [readFD] in close(readFD) }
+            self.reader = reader
+            let exit = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: queue)
+            exit.setEventHandler { [self] in finish() }
+            exitSource = exit
+            reader.resume()
+            exit.resume()
+            queue.asyncAfter(deadline: .now() + timeout) { [self] in
+                guard !exited else { return }
+                report(.timedOut)
+                killpg(pid, SIGTERM)
+                queue.asyncAfter(deadline: .now() + ProcessLauncher.killGrace) { [self] in
+                    if !exited { killpg(pid, SIGKILL) }
+                }
             }
-            let timedOut = Flag()
-            let timer = DispatchWorkItem { timedOut.set(); process.terminate() }
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
-            let output = stderr.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            timer.cancel()
-            if timedOut.value { completion(.timedOut) }
-            else if process.terminationStatus != 0 {
-                let text = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-                completion(.scriptFailed(text.isEmpty ? "exit status \(process.terminationStatus)" : text))
-            } else { completion(nil) }
+        }
+
+        /// Reads what is available (past the cap it is discarded); false at EOF or on error.
+        private func drain() -> Bool {
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while true {
+                let n = read(readFD, &buffer, buffer.count)
+                if n > 0 {
+                    if output.count < ProcessLauncher.stderrCap {
+                        output.append(contentsOf: buffer[0..<min(n, ProcessLauncher.stderrCap - output.count)])
+                    }
+                } else { return n < 0 && errno == EAGAIN }
+            }
+        }
+
+        private func finish() {
+            exited = true
+            var status: Int32 = 0
+            waitpid(pid, &status, 0)
+            _ = drain()
+            reader?.cancel()
+            exitSource?.cancel()
+            let code = (status & 0x7f) == 0 ? (status >> 8) & 0xff : 128 + (status & 0x7f)
+            if code == 0 { return report(nil) }
+            let text = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            report(.scriptFailed(text.isEmpty ? "exit status \(code)" : text))
+        }
+
+        private func report(_ error: ActionError?) {
+            guard !reported else { return }
+            reported = true
+            completion(error)
         }
     }
-}
-
-private final class Flag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var flag = false
-    func set() { lock.withLock { flag = true } }
-    var value: Bool { lock.withLock { flag } }
 }
 
 public struct SystemWorkspace: WorkspaceOpening {

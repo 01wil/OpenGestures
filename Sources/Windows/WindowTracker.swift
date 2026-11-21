@@ -42,10 +42,37 @@ public final class WindowTracker {
     func current() -> (id: CGWindowID, pid: pid_t)? { step { h, _ in h.order.first } }
 
     private func step(_ f: (inout WindowHistory<CGWindowID>, TimeInterval) -> CGWindowID?) -> (id: CGWindowID, pid: pid_t)? {
-        let alive = Dictionary(WindowList.items(onScreenOnly: false).map { ($0.id, $0.pid) }, uniquingKeysWith: { a, _ in a })
+        let alive = Dictionary(showableWindows().map { ($0.id, $0.pid) }, uniquingKeysWith: { a, _ in a })
         history.retain(alive: Set(alive.keys))
         guard let id = f(&history, now), let pid = alive[id] else { return nil }
         return (id, pid)
+    }
+
+    /// Existing windows minus those an app ordered out (Cmd-W on a window it keeps): nothing on screen,
+    /// not minimised, not on another Space, so focusing them would seem to do nothing.
+    private func showableWindows() -> [WindowList.Item] {
+        let onScreen = Set(WindowList.items(onScreenOnly: true).map(\.id))
+        var axWindows: [pid_t: [CGWindowID: Bool]] = [:]
+        var hidden: [pid_t: Bool] = [:]
+        return WindowList.items(onScreenOnly: false).filter { item in
+            if onScreen.contains(item.id) { return true }
+            if axWindows[item.pid] == nil {
+                let list = AX.trusted ? AX.value(AX.application(item.pid), kAXWindowsAttribute) as? [AXUIElement] : nil
+                axWindows[item.pid] = Dictionary((list ?? []).compactMap { w in
+                    AX.windowID(w).map { ($0, AX.value(w, kAXMinimizedAttribute) as? Bool == true) }
+                }, uniquingKeysWith: { a, _ in a })
+                hidden[item.pid] = NSRunningApplication(processIdentifier: item.pid)?.isHidden ?? false
+            }
+            let state: AXWindowState = axWindows[item.pid]?[item.id].map { $0 ? .minimised : .normal } ?? .unlisted
+            return Self.canBeShown(onScreen: false, axState: state, appHidden: hidden[item.pid] ?? false)
+        }
+    }
+
+    enum AXWindowState { case normal, minimised, unlisted }
+
+    /// `unlisted`: AX does not list the window, i.e. it lives on another Space.
+    nonisolated static func canBeShown(onScreen: Bool, axState: AXWindowState, appHidden: Bool) -> Bool {
+        onScreen || appHidden || axState != .normal
     }
 
     private func appActivated(_ pid: pid_t) {

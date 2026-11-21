@@ -32,16 +32,41 @@ public final class WindowController {
     private func focus(_ target: (id: CGWindowID, pid: pid_t)?) -> Bool {
         guard AX.trusted, let (id, pid) = target, let app = NSRunningApplication(processIdentifier: pid) else { return false }
         if app.isHidden { app.unhide() }
-        var fronted = false
         if let w = AX.window(id: id, pid: pid) {
             raise(w, pid: pid)
-        } else {
-            // Not listed by AX: another Space. Public API cannot front it, so use the window-server path.
-            fronted = PrivateFront.front(windowID: id, pid: pid)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                if let w = AX.window(id: id, pid: pid) { Self.raise(w, pid: pid) }
-            }
+            return activate(app, pid: pid)
         }
+        // Not listed by AX: another Space. Public API cannot front it, so use the window-server path, then
+        // wait for the Space switch to finish before raising and activating (activating earlier can bring
+        // another window of the app forward).
+        guard PrivateFront.front(windowID: id, pid: pid) else { return activate(app, pid: pid) }
+        afterSpaceSwitch { [weak self] in
+            if let w = AX.window(id: id, pid: pid) { Self.raise(w, pid: pid) }
+            self?.activate(app, pid: pid)
+        }
+        return true
+    }
+
+    /// Runs `body` once, on the next Space change or after a 1.5 s deadline, whichever comes first.
+    private func afterSpaceSwitch(_ body: @escaping @MainActor () -> Void) {
+        let center = NSWorkspace.shared.notificationCenter
+        var token: NSObjectProtocol?
+        var done = false
+        let finish: @MainActor () -> Void = {
+            guard !done else { return }
+            done = true
+            if let token { center.removeObserver(token) }
+            body()
+        }
+        token = center.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { finish() }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { MainActor.assumeIsolated { finish() } }
+    }
+
+    @discardableResult
+    private func activate(_ app: NSRunningApplication, pid: pid_t) -> Bool {
+        var fronted = false
         // A never-active menu bar app cannot hand activation over, so ask the target to come forward too.
         if AX.set(AX.application(pid), kAXFrontmostAttribute, kCFBooleanTrue) { fronted = true }
         if app.activate(from: .current, options: []) || app.activate(options: []) { fronted = true }
@@ -67,6 +92,7 @@ public final class WindowController {
               let j = DisplayGeometry.adjacent(to: i, in: screens.map(\.frame), forward: forward) else { return false }
         let current = DisplayGeometry.appKit(fromAX: ax, primaryMaxY: Self.primaryMaxY)
         let target = DisplayGeometry.rect(moving: current, from: screens[i].visibleFrame, to: screens[j].visibleFrame)
+        if let id = AX.windowID(w) { forget(id) }
         return AX.setFrame(DisplayGeometry.ax(fromAppKit: target, primaryMaxY: Self.primaryMaxY), of: w)
     }
 

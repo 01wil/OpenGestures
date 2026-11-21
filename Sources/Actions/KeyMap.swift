@@ -28,7 +28,16 @@ public enum KeyMap {
     }
 }
 
+extension KeyMap {
+    /// First key code (0...50, which includes the ISO key) whose unshifted character is `ch`.
+    static func scan(for ch: Character, character: (CGKeyCode) -> Character?) -> CGKeyCode? {
+        (0...50).lazy.map { CGKeyCode($0) }.first { character($0) == ch }
+    }
+}
+
 enum LiveKeyboardLayout {
+    static let noDeadKeys = OptionBits(kUCKeyTranslateNoDeadKeysMask)
+
     /// Reverse lookup (unshifted character to key code) in the user's current layout. Main thread only:
     /// the Text Input Sources API traps off the main thread on current macOS. Not cached, so layout switches apply.
     static func keyCode(for ch: Character) -> CGKeyCode? {
@@ -37,15 +46,14 @@ enum LiveKeyboardLayout {
         let data = Unmanaged<CFData>.fromOpaque(raw).takeUnretainedValue()
         guard let bytes = CFDataGetBytePtr(data) else { return nil }
         return bytes.withMemoryRebound(to: UCKeyboardLayout.self, capacity: 1) { layout in
-            for code in 0..<UInt16(50) {
+            KeyMap.scan(for: ch) { code in
                 var dead: UInt32 = 0
                 var length = 0
                 var chars = [UniChar](repeating: 0, count: 4)
                 let status = UCKeyTranslate(layout, code, UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()),
-                                            OptionBits(kUCKeyTranslateNoDeadKeysBit), &dead, 4, &length, &chars)
-                if status == noErr, length == 1, Character(UnicodeScalar(chars[0]) ?? " ") == ch { return CGKeyCode(code) }
+                                            noDeadKeys, &dead, 4, &length, &chars)
+                return status == noErr && length == 1 ? UnicodeScalar(chars[0]).map(Character.init) : nil
             }
-            return nil
         }
     }
 }

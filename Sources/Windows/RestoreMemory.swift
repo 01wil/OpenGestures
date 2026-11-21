@@ -8,25 +8,27 @@ public struct RestoreMemory<Key: Hashable> {
 
     static var tolerance: CGFloat { 4 }
 
-    private struct Entry { var original: CGRect; var placed: CGRect }
+    private struct Entry { var original: CGRect; var requested: CGRect; var placed: CGRect }
     private var entries: [Key: Entry] = [:]
 
     public init() {}
 
     public func original(of key: Key) -> CGRect? { entries[key]?.original }
 
-    /// Already at `target` with a saved frame: restore it and forget. Otherwise remember the frame the
+    /// Already at `target` (or, for the same request, at the frame the system actually gave, e.g. a snapped
+    /// Terminal grid) with a saved frame: restore it and forget. Otherwise remember the frame the
     /// window had before our first layout and apply. A window already at `target` with nothing saved
     /// has nothing worth restoring, so nothing is saved.
     public mutating func toggle(_ key: Key, current: CGRect, target: CGRect) -> Outcome {
-        if let e = entries[key], Self.near(current, target) {
+        if let e = entries[key],
+           Self.near(current, target) || (Self.near(current, e.placed) && Self.near(target, e.requested)) {
             entries[key] = nil
             return .restore(e.original)
         }
         if let e = entries[key] {
-            entries[key] = Entry(original: e.original, placed: target)
+            entries[key] = Entry(original: e.original, requested: target, placed: e.placed)
         } else if !Self.near(current, target) {
-            entries[key] = Entry(original: current, placed: target)
+            entries[key] = Entry(original: current, requested: target, placed: target)
         }
         return .apply
     }
