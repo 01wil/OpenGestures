@@ -1,33 +1,35 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Foundation
 
-/// Most-recently-used list of window ids with Vorssaint-style quick-flick navigation.
+/// Most-recently-used list of window ids, walked by previous / next gestures.
 ///
-/// Semantics: `order[0]` is the current window. A fresh `previous` targets `order[1]` (so one flick
-/// toggles back); a fresh `next` targets the least recent entry. Calls less than `sessionTimeout`
-/// seconds apart form a session that walks a frozen snapshot: `previous` goes one step older,
-/// `next` one step newer, both wrapping. During a session `order` is not touched: the activation
-/// echo of our own focus change (`activated(target)`) is ignored. When the session times out, or a
-/// different window is activated, the session is committed by rotating the snapshot so its target is
-/// first. Rotation keeps the ring's order, so repeated slow `previous` calls visit every window (the
-/// window left behind goes to the back) instead of toggling between two, and `next` undoes `previous`.
+/// `order[0]` is the current window. The first `previous` targets `order[1]` (back to where you came
+/// from); the first `next` targets the least recent window. That starts a walk over a frozen snapshot:
+/// further `previous` calls go one step older, `next` one step newer, both wrapping, however slowly
+/// they come. The walk ends only when the user activates a window themselves (or `settle()`); the
+/// window they walked to is then recorded as used, followed by the one they picked.
+///
+/// Activations that arrive within `echoWindow` seconds of a step are our own focus change echoing back
+/// (apps often report another of their windows first) and are ignored. Windows that close mid-walk
+/// drop out of the snapshot without ending the walk.
 public struct WindowHistory<ID: Hashable> {
-    public static var defaultSessionTimeout: TimeInterval { 1.0 }
+    public static var defaultEchoWindow: TimeInterval { 0.5 }
 
     public private(set) var order: [ID] = []
     private let limit: Int
-    private let sessionTimeout: TimeInterval
-    private var session: (snapshot: [ID], cursor: Int, last: TimeInterval)?
+    private let echoWindow: TimeInterval
+    private var walk: (snapshot: [ID], cursor: Int, last: TimeInterval)?
 
-    public init(limit: Int = 50, sessionTimeout: TimeInterval = defaultSessionTimeout) {
+    public init(limit: Int = 50, echoWindow: TimeInterval = defaultEchoWindow) {
         self.limit = limit
-        self.sessionTimeout = sessionTimeout
+        self.echoWindow = echoWindow
     }
 
     public mutating func activated(_ id: ID, now: TimeInterval) {
-        expire(now)
-        if let s = session, s.snapshot[s.cursor] == id { return }
-        session = nil
+        if let w = walk {
+            if w.snapshot[w.cursor] == id || now - w.last < echoWindow { return }
+            settle()
+        }
         promote(id)
     }
 
@@ -36,40 +38,34 @@ public struct WindowHistory<ID: Hashable> {
         for id in ids where !order.contains(id) && order.count < limit { order.append(id) }
     }
 
-    /// Drops windows that no longer exist.
+    /// Drops windows that no longer exist, from the history and from a walk in progress.
     public mutating func retain(alive: Set<ID>) {
-        let before = order.count
         order.removeAll { !alive.contains($0) }
-        if order.count != before { session = nil }
+        guard var w = walk else { return }
+        let target = w.snapshot[w.cursor]
+        // Dead windows before the cursor shift it; a dead target leaves the cursor on the next older one.
+        w.cursor -= w.snapshot[..<w.cursor].filter { !alive.contains($0) }.count
+        w.snapshot.removeAll { !alive.contains($0) }
+        if !alive.contains(target) { w.cursor -= 1 }
+        walk = w.snapshot.count > 1 ? (w.snapshot, (w.cursor + w.snapshot.count) % w.snapshot.count, w.last) : nil
     }
 
-    /// Commits a running quick-flick session now, so `order` starts with the window it walked to.
+    /// Ends a walk in progress, recording the walked-to window as the most recent.
     public mutating func settle() {
-        if let s = session { commit(s) }
+        guard let w = walk else { return }
+        walk = nil
+        promote(w.snapshot[w.cursor])
     }
 
     public mutating func previous(now: TimeInterval) -> ID? { step(now, by: 1) }
     public mutating func next(now: TimeInterval) -> ID? { step(now, by: -1) }
 
     private mutating func step(_ now: TimeInterval, by delta: Int) -> ID? {
-        expire(now)
-        guard order.count > 1 else { return nil }
-        let snapshot = session?.snapshot ?? order
-        let cursor = ((session?.cursor ?? 0) + delta + snapshot.count) % snapshot.count
-        session = (snapshot, cursor, now)
-        return snapshot[cursor]
-    }
-
-    private mutating func expire(_ now: TimeInterval) {
-        guard let s = session, now - s.last >= sessionTimeout else { return }
-        commit(s)
-    }
-
-    private mutating func commit(_ s: (snapshot: [ID], cursor: Int, last: TimeInterval)) {
-        session = nil
-        // Keep only windows still in `order` (some may have closed during the session).
-        let rotated = Array(s.snapshot[s.cursor...] + s.snapshot[..<s.cursor]).filter(order.contains)
-        order = rotated + order.filter { !rotated.contains($0) }
+        let w = walk ?? (order, 0, now)
+        guard w.snapshot.count > 1 else { return nil }
+        let cursor = (w.cursor + delta + w.snapshot.count) % w.snapshot.count
+        walk = (w.snapshot, cursor, now)
+        return w.snapshot[cursor]
     }
 
     private mutating func promote(_ id: ID) {
