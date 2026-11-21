@@ -6,6 +6,22 @@ Free, open-source gestures for your Mac's trackpad, built-in or Magic Trackpad, 
 
 OpenGestures is a small menu bar app. You pick a gesture, optionally hold modifier keys, optionally limit it to one app, and choose what it does. Everything lives in one readable config file that you can keep in git.
 
+## Screenshots
+
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/gestures-dark.png">
+  <img src="docs/images/gestures-light.png" width="400" alt="The Gestures pane of the settings window, listing the default bindings">
+</picture>
+&nbsp;
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/editor-dark.png">
+  <img src="docs/images/editor-light.png" width="400" alt="The gesture editor: choose the gesture, modifier keys, the apps it works in and the action">
+</picture>
+</p>
+
+The settings window lists your bindings, and the editor turns a gesture into an action. Both are views of the same config file. The warning at the top is OpenGestures noticing a clash with a macOS gesture. It never changes your system settings.
+
 ## What it does
 
 Out of the box, these gestures are bound.
