@@ -3,6 +3,11 @@
 import Foundation
 
 /// Recogniser thresholds. Distances are in normalised trackpad units (0...1 across each axis).
+///
+/// Measured on a real trackpad (Tests/RecognizerTests/Fixtures, 2026-11-21): frames every 8 ms; fingertip
+/// `size` 0.12...0.96; a resting palm touches at 1.2 and grows to 5.7, a resting thumb starts at 0.7 and passes 2
+/// after 0.4 s; swipes move the centroid 0.13...0.22 in 200...320 ms with all fingers down; the lightest tap
+/// touches for three frames (16 ms), taps last 16...128 ms.
 public struct Tuning: Sendable, Equatable {
     /// 0 = needs big, deliberate movements; 1 = reacts to small ones. 0.5 is the default.
     public var sensitivity: Double
@@ -33,8 +38,8 @@ public struct Tuning: Sendable, Equatable {
     let minSpread = 0.03
 
     let tapMaxDuration = 0.25
-    /// Shorter contacts are sensor noise.
-    let tapMinDuration = 0.02
+    /// Shorter contacts are sensor noise; a light real tap touches for 16 ms.
+    let tapMinDuration = 0.01
     let tapMaxMove = 0.03
     let cornerZone = 0.10
 

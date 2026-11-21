@@ -39,16 +39,25 @@ enum Fixture {
 }
 
 @Suite struct FixtureTests {
-    @Test func everyRecordedFixtureYieldsItsGesture() throws {
-        for url in Fixture.urls {
-            let name = url.deletingPathExtension().lastPathComponent
-            guard let expected = Fixture.expectation(forFileNamed: name) else {
-                Issue.record("\(name): name must be <gesture-id>__<anything> or none__<anything>")
-                continue
-            }
-            let events = recognize(try Fixture.load(url))
-            #expect(Fixture.check(events, against: expected), "\(name): got \(events.map(\.gesture.id))")
-        }
+    static let names = Fixture.urls.map { $0.deletingPathExtension().lastPathComponent }
+
+    @Test(arguments: names) func recordedFixtureYieldsItsGesture(_ name: String) throws {
+        let expected = try #require(Fixture.expectation(forFileNamed: name),
+                                    "name must be <gesture-id>__<anything> or none__<anything>")
+        let url = try #require(Fixture.urls.first { $0.deletingPathExtension().lastPathComponent == name })
+        let events = recognize(try Fixture.load(url))
+        #expect(Fixture.check(events, against: expected), "expected \(expected), got \(events.map(\.gesture.id))")
+    }
+
+    /// Every gesture the guided recorder asks for, read from its source so the two cannot drift apart.
+    @Test func everyGuidedGestureHasAFixture() throws {
+        let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../Sources/og-record/main.swift")
+        let text = try String(contentsOf: source, encoding: .utf8)
+        let guided = Set(text.matches(of: /\("([a-z0-9.]+)", "/).map { String($0.1) })
+        #expect(guided.count > 20)
+        let recorded = Set(Self.names.map { String($0.prefix { $0 != "_" }) })
+        #expect(guided.subtracting(recorded).isEmpty, "no fixture for \(guided.subtracting(recorded).sorted())")
     }
 
     @Test func parsesFixtureNames() {

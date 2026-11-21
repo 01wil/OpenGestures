@@ -7,6 +7,12 @@ import Model
 public final class GestureRecognizer {
     public var tuning: Tuning
     private static let maxMissingFrames = 2
+    /// Real fingers show up in a hover state for two frames or more before they touch (all 161 recorded contacts);
+    /// a contact seen in fewer frames is noise and must not raise the finger count.
+    private static let minFramesSeen = 3
+    /// A session survives this long without a touching contact: a light touch can drop out of the touching
+    /// state, or out of the frame entirely, for a frame.
+    private static let liftGrace = 0.03
 
     private struct Track {
         var start: Point
@@ -39,6 +45,10 @@ public final class GestureRecognizer {
     /// Consecutive frames each finger has been absent while others stayed down.
     private var missing: [Int: Int] = [:]
     private var session: Session?
+    /// Frames each contact in the last frame has been seen in, in any state.
+    private var seen: [Int: Int] = [:]
+    /// The last session that ended, resumed if fingers come back within `liftGrace`.
+    private var ended: (session: Session, at: Double)?
 
     public init(tuning: Tuning = .init()) {
         self.tuning = tuning
@@ -49,13 +59,24 @@ public final class GestureRecognizer {
         palms = []
         missing = [:]
         session = nil
+        seen = [:]
+        ended = nil
     }
 
     public func process(_ frame: TouchFrame) -> [GestureEvent] {
         let t = frame.timestamp
-        let contacts = frame.touches.filter(\.isTouching)
-        // A contact that was ever palm-sized stays ignored for its lifetime.
-        palms = palms.intersection(contacts.map(\.id)).union(contacts.filter { $0.size > tuning.palmSize }.map(\.id))
+        // A tracked finger that drops out for a frame keeps its count.
+        seen = Dictionary(frame.touches.map { ($0.id, (seen[$0.id] ?? 0) + 1) }, uniquingKeysWith: max)
+            .merging(seen.filter { positions[$0.key] != nil }) { new, _ in new }
+        if let s = session, t - s.last < Self.liftGrace, !frame.touches.isEmpty, !frame.touches.contains(where: \.isTouching) {
+            return []
+        }
+        let contacts = frame.touches.filter { $0.isTouching && seen[$0.id]! >= Self.minFramesSeen }
+        // A contact that was ever palm-sized stays ignored for its lifetime. A palm touches at fingertip size and
+        // grows, so a finger that turns into a palm voids its session.
+        let big = Set(contacts.filter { $0.size > tuning.palmSize }.map(\.id))
+        if session?.tracks.keys.contains(where: { big.contains($0) && !palms.contains($0) }) == true { session?.done = true }
+        palms = palms.intersection(contacts.map(\.id)).union(big)
         var current = Dictionary(
             contacts.filter { !palms.contains($0.id) }.map { ($0.id, Point(x: Double($0.x), y: Double($0.y))) },
             uniquingKeysWith: { a, _ in a })
@@ -74,10 +95,16 @@ public final class GestureRecognizer {
         positions = current
 
         guard !current.isEmpty else {
-            defer { session = nil }
-            return session.flatMap(ended).map { [GestureEvent($0)] } ?? []
+            guard var s = session else { return [] }
+            session = nil
+            let g = end(s)
+            s.done = s.done || g != nil
+            ended = (s, t)
+            return g.map { [GestureEvent($0)] } ?? []
         }
-        var s = session ?? Session(start: t, last: t)
+        let resumed = ended.flatMap { t - $0.at < Self.liftGrace ? $0.session : nil }
+        ended = nil
+        var s = session ?? resumed ?? Session(start: t, last: t)
         var events: [GestureEvent] = []
         if let tip = s.tip, current[tip.tapper] == nil {
             s.tip = nil
@@ -113,12 +140,12 @@ public final class GestureRecognizer {
         return events
     }
 
-    private func ended(_ s: Session) -> Gesture? {
+    private func end(_ s: Session) -> Gesture? {
         let duration = s.last - s.start
         guard !s.done, s.tipTaps == 0, (tuning.tapMinDuration...tuning.tapMaxDuration).contains(duration),
               s.tracks.values.allSatisfy({ $0.travel <= tuning.tapMaxMove }) else { return nil }
         if s.maxCount == 1, let p = s.tracks.values.first?.start, let c = corner(p) { return .cornerTap(corner: c) }
-        return .tap(fingers: s.maxCount)
+        return .tap(fingers: min(s.maxCount, Gesture.tapFingers.upperBound))
     }
 
     private func oneFinger(_ s: inout Session, _ track: Track, _ p: Point) -> [GestureEvent] {
@@ -187,6 +214,8 @@ public final class GestureRecognizer {
     /// the larger one if several cross in the same frame.
     private func multiFinger(_ s: inout Session, _ t: Double) -> Gesture? {
         let ids = positions.keys.sorted()
+        // Six or more contacts are five fingers plus an unfiltered thumb or palm edge.
+        let fingers = min(ids.count, Gesture.swipeFingers.upperBound, Gesture.pinchFingers.upperBound)
         let now = ids.map { positions[$0]! }
         let base = ids.map { s.baseline[$0] ?? positions[$0]! }
         let offset = zip(now, base).reduce(Point.zero) { $0 + ($1.0 - $1.1) } / Double(ids.count)
@@ -196,12 +225,12 @@ public final class GestureRecognizer {
         var candidates: [(Gesture, Double)] = []
         if let old = s.history.first, t > old.t, (offset - old.offset).length / (t - old.t) >= tuning.swipeMinSpeed,
            let direction = dominantDirection(offset) {
-            candidates.append((.swipe(fingers: ids.count, direction: direction), offset.length / tuning.swipeDistance))
+            candidates.append((.swipe(fingers: fingers, direction: direction), offset.length / tuning.swipeDistance))
         }
         let spreadNow = spread(now), spreadBase = spread(base)
         if spreadBase >= tuning.minSpread, spreadNow > 0 {
             let r = log(spreadNow / spreadBase)
-            candidates.append((.pinch(fingers: ids.count, direction: r < 0 ? .pinchIn : .pinchOut), abs(r) / tuning.pinchLogRatio))
+            candidates.append((.pinch(fingers: fingers, direction: r < 0 ? .pinchIn : .pinchOut), abs(r) / tuning.pinchLogRatio))
             if ids.count == 2 {
                 let a = remainder(angle(now) - angle(base), 2 * .pi)
                 candidates.append((.rotate(a < 0 ? .clockwise : .counterClockwise), abs(a) / tuning.rotateAngle))
