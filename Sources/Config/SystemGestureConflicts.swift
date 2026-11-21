@@ -25,11 +25,12 @@ public enum SystemGestureConflicts {
     private static let moreGestures = "System Settings › Trackpad › More Gestures"
     private static let rules: [Rule] = [
         Rule(key: "TrackpadFourFingerHorizSwipeGesture",
-             matches: { swipe($0, 4, [.left, .right]) },
-             message: "4-finger swipe left/right is also used by macOS to switch between full-screen apps and desktops (\(moreGestures))."),
+             // macOS treats five fingers as four for its swipes.
+             matches: { swipe($0, 4, [.left, .right]) || swipe($0, 5, [.left, .right]) },
+             message: "4-finger swipe left/right is also used by macOS to switch between full-screen apps and desktops, and macOS reacts to 5 fingers too (\(moreGestures))."),
         Rule(key: "TrackpadFourFingerVertSwipeGesture",
-             matches: { swipe($0, 4, [.up, .down]) },
-             message: "4-finger swipe up/down is also used by macOS for Mission Control and App Exposé (\(moreGestures))."),
+             matches: { swipe($0, 4, [.up, .down]) || swipe($0, 5, [.up, .down]) },
+             message: "4-finger swipe up/down is also used by macOS for Mission Control and App Exposé, and macOS reacts to 5 fingers too (\(moreGestures))."),
         Rule(key: "TrackpadThreeFingerHorizSwipeGesture",
              matches: { swipe($0, 3, [.left, .right]) },
              message: "3-finger swipe left/right is also used by macOS to switch between pages or full-screen apps (\(moreGestures))."),

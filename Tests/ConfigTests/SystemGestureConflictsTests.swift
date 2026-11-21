@@ -13,7 +13,7 @@ import Model
         let c = find(Configuration.default.bindings, builtIn: ["TrackpadFourFingerHorizSwipeGesture": 2])
         #expect(c.count == 1)
         #expect(c.first?.bindingIDs == Configuration.default.bindings.map(\.id))
-        #expect(c.first?.message == "4-finger swipe left/right is also used by macOS to switch between full-screen apps and desktops (System Settings › Trackpad › More Gestures).")
+        #expect(c.first?.message == "4-finger swipe left/right is also used by macOS to switch between full-screen apps and desktops, and macOS reacts to 5 fingers too (System Settings › Trackpad › More Gestures).")
     }
 
     @Test func noConflictWhenSystemGestureIsOffOrMissing() {
@@ -51,6 +51,13 @@ import Model
         #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .left), action: .nextWindow)], builtIn: key).count == 1)
         #expect(find([Binding(gesture: .tap(fingers: 5), action: .nextWindow)], builtIn: key).count == 1)
         #expect(find([Binding(gesture: .tap(fingers: 4), action: .nextWindow)], builtIn: key).isEmpty)
+    }
+
+    @Test func fourFingerSystemSwipesAlsoCatchFiveFingers() {
+        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .up), action: .nextWindow)],
+                     builtIn: ["TrackpadFourFingerVertSwipeGesture": 2]).count == 1)
+        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .left), action: .nextWindow)],
+                     builtIn: ["TrackpadFourFingerHorizSwipeGesture": 2]).count == 1)
     }
 
     @Test func unrelatedGesturesNeverConflict() {
