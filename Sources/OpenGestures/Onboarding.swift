@@ -61,6 +61,22 @@ struct OnboardingView: View {
                     Text("⌘ + 4 fingers ← →").bold()
                     Text("Move window to the other display")
                 }
+                GridRow {
+                    Text("5 fingers ← →").bold()
+                    Text("Left / right half of the screen")
+                }
+                GridRow {
+                    Text("4 / 5 finger tap").bold()
+                    Text("Maximize / center the window")
+                }
+                GridRow {
+                    Text("TipTap ← →").bold()
+                    Text("Previous / next track")
+                }
+                GridRow {
+                    Text("Slide along an edge").bold()
+                    Text("Volume (right), brightness (left)")
+                }
             }
             .padding(.top, Design.spacing)
         }

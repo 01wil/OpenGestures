@@ -119,7 +119,9 @@ import Model
     }
 
     @Test func childInheritsOnlyStdio() async throws {
-        let leak = open("/dev/null", O_RDONLY)  // not close-on-exec: must not reach the child
+        // Not close-on-exec: must not reach the child. Moved to fd 100+ so its number cannot equal one of
+        // the shell's own descriptors (a plain open() sometimes returns 3, which `echo /dev/fd/*` shows too).
+        let leak = fcntl(open("/dev/null", O_RDONLY), F_DUPFD, 100)
         defer { close(leak) }
         let out = FileManager.default.temporaryDirectory.appendingPathComponent("og-fds-\(UUID().uuidString)").path
         defer { try? FileManager.default.removeItem(atPath: out) }
