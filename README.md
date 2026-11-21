@@ -2,9 +2,11 @@
 
 <p align="center"><img src="Resources/AppIcon-1024.png" width="128" alt="OpenGestures icon"></p>
 
-Free, open-source gestures for your Mac's trackpad, built-in or Magic Trackpad, mapped to whatever you want. For now you build it from source, because signed downloads need a paid Apple Developer account. A signed download will come if people find the app useful.
+Free, open-source gestures for your Mac's trackpad, built-in or Magic Trackpad, mapped to whatever you want.
 
-OpenGestures is a small menu bar app. You pick a gesture, optionally hold modifier keys, optionally limit it to one app, and choose what it does. Everything lives in one readable config file that you can keep in git.
+OpenGestures is a small menu bar app. You pick a gesture, add modifier keys or limit it to one app if you like, and choose what it does. Everything lives in one readable config file that you can keep in git.
+
+For now you build it from source, because signed downloads need a paid Apple Developer account. A signed download will come if people find the app useful.
 
 ## Screenshots
 
