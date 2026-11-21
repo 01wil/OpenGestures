@@ -23,6 +23,8 @@ final class AppModel {
     private(set) var isFirstRun = false
     private(set) var accessibilityGranted = System.accessibilityGranted
     @ObservationIgnored private(set) lazy var engine = Engine { [weak self] message in self?.report(message) }
+    /// Nil outside an app bundle. Shows the real status and the last failure.
+    private(set) var loginItem = MainAppLoginItem.available ? LaunchAtLogin(MainAppLoginItem()) : nil
     @ObservationIgnored private var watcher: ConfigWatcher?
 
     var canEdit: Bool { configError == nil }
@@ -90,19 +92,30 @@ final class AppModel {
     private func apply(_ c: Configuration) {
         config = c
         engine.configure(bindings: c.bindings, enabled: c.settings.enabled, sensitivity: c.settings.sensitivity)
-        syncLaunchAtLogin(c.settings.launchAtLogin)
+        loginItem?.sync(wanted: c.settings.launchAtLogin)
     }
 
-    /// SMAppService only works from an app bundle; `swift run` builds skip it.
-    private func syncLaunchAtLogin(_ wanted: Bool) {
-        guard Bundle.main.bundleURL.pathExtension == "app" else { return }
-        let service = SMAppService.mainApp
-        let registered = service.status == .enabled || service.status == .requiresApproval
-        guard wanted != registered else { return }
-        do {
-            if wanted { try service.register() } else { try service.unregister() }
-        } catch {
-            report("Couldn’t change launch at login: \(error.localizedDescription)")
+    func setLaunchAtLogin(_ wanted: Bool) {
+        let changed = wanted != config.settings.launchAtLogin
+        update { $0.settings.launchAtLogin = wanted }
+        // The setting may already say `wanted` while the login item failed to follow; a click retries.
+        if !changed { loginItem?.sync(wanted: wanted, retry: true) }
+    }
+
+    func refreshLoginItem() { loginItem?.refresh() }
+}
+
+/// SMAppService only works from an app bundle; `swift run` builds have no login item.
+struct MainAppLoginItem: LoginItemService {
+    static var available: Bool { Bundle.main.bundleURL.pathExtension == "app" }
+
+    var status: LoginItemStatus {
+        switch SMAppService.mainApp.status {
+        case .enabled: .enabled
+        case .requiresApproval: .requiresApproval
+        default: .notRegistered
         }
     }
+    func register() throws { try SMAppService.mainApp.register() }
+    func unregister() throws { try SMAppService.mainApp.unregister() }
 }

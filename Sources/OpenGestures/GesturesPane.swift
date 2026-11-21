@@ -65,7 +65,7 @@ struct GesturesPane: View {
                     if let error = model.configError {
                         Section {
                             Label(error, systemImage: "xmark.octagon").foregroundStyle(.red)
-                            Text("Your last working gestures stay active. Fix the file and it reloads by itself.")
+                            Text("Your last working gestures stay active. Fix the file and it reloads by itself, or delete it to start over.")
                                 .foregroundStyle(.secondary)
                         }
                     }

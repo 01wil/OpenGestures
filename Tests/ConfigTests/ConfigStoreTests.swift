@@ -139,4 +139,120 @@ func makeTempDir() throws -> URL {
         try await Task.sleep(for: .milliseconds(200))
         #expect(events.all.isEmpty)
     }
+
+    // MARK: Symlinks
+
+    private func symlink(to target: URL, relative: Bool = false) throws -> URL {
+        let link = dir.appendingPathComponent("link.json")
+        if relative {
+            try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: target.path.replacingOccurrences(of: dir.path + "/", with: ""))
+        } else {
+            try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        }
+        return link
+    }
+
+    @Test(arguments: [false, true])
+    func danglingSymlinkIsWrittenThroughNotReplaced(relative: Bool) throws {
+        let target = dir.appendingPathComponent("dotfiles/sub/config.json")
+        let link = try symlink(to: target, relative: relative)
+
+        #expect(try ConfigStore(url: link).load() == .default)
+
+        #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)) != nil)
+        #expect(try Configuration.decode(Data(contentsOf: target)) == .default)
+    }
+
+    @Test func danglingSymlinkWithUncreatableTargetErrorsAndKeepsLink() throws {
+        let blocker = dir.appendingPathComponent("blocker")
+        try Data().write(to: blocker)
+        let target = blocker.appendingPathComponent("config.json")
+        let link = try symlink(to: target)
+
+        #expect(throws: ConfigError.self) { try ConfigStore(url: link).save(.default) }
+        #expect(try FileManager.default.destinationOfSymbolicLink(atPath: link.path) == target.path)
+    }
+
+    @Test func watcherSurvivesSymlinkTargetRemovedAndRecreated() async throws {
+        let repo = dir.appendingPathComponent("dotfiles", isDirectory: true)
+        let target = repo.appendingPathComponent("config.json")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        try Configuration.default.encoded().write(to: target)
+        let link = try symlink(to: target)
+        let events = Events()
+        let watcher = ConfigStore(url: link).watch { events.add($0) }
+        defer { watcher.cancel() }
+
+        try FileManager.default.removeItem(at: target)  // git stash
+        try await Task.sleep(for: .milliseconds(200))
+        var edited = Configuration.default
+        edited.settings.sensitivity = 0.9
+        try edited.encoded().write(to: target)  // git stash pop
+        #expect(await waitUntil { events.all.contains { $0 == .success(edited) } })
+
+        try FileManager.default.removeItem(at: repo)  // whole directory goes
+        try await Task.sleep(for: .milliseconds(200))
+        edited.settings.sensitivity = 0.1
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        try edited.encoded().write(to: target)
+        #expect(await waitUntil { events.all.contains { $0 == .success(edited) } })
+    }
+
+    // MARK: Binding ids
+
+    @Test func loadFixesMissingAndDuplicateIDsAndWritesThemBack() throws {
+        let dup = "0F1E2D3C-0001-4000-8000-000000000001"
+        let json = """
+        {"bindings": [
+          {"id": "\(dup)", "gesture": "tap.3", "action": {"type": "nextWindow"}},
+          {"id": "\(dup)", "gesture": "tap.4", "action": {"type": "nextWindow"}},
+          {"gesture": "tap.5", "action": {"type": "nextWindow"}}
+        ]}
+        """
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: url)
+
+        let first = try store.load()
+        #expect(Set(first.bindings.map(\.id)).count == 3)
+        #expect(first.bindings[0].id.uuidString == dup)
+        #expect(try Configuration.decode(Data(contentsOf: url)) == first)  // written back
+        #expect(try store.load() == first)  // stable
+    }
+
+    @Test func watcherAlsoNormalizesIDs() async throws {
+        try store.save(.default)
+        let events = Events()
+        let watcher = store.watch { events.add($0) }
+        defer { watcher.cancel() }
+        let json = #"{"bindings": [{"gesture": "tap.3", "action": {"type": "nextWindow"}}, {"gesture": "tap.4", "action": {"type": "nextWindow"}}]}"#
+        try Data(json.utf8).write(to: url)
+        #expect(await waitUntil { (try? Configuration.decode(Data(contentsOf: url)))?.bindings.count == 2
+            && (try? String(contentsOf: url, encoding: .utf8))?.contains("\"id\"") == true })
+    }
+
+    // MARK: Deleted invalid file
+
+    @Test func deletingInvalidFileRecreatesDefaults() async throws {
+        try store.save(.default)
+        try Data("{ not json".utf8).write(to: url)
+        let events = Events()
+        let watcher = store.watch { events.add($0) }
+        defer { watcher.cancel() }
+        try await Task.sleep(for: .milliseconds(100))
+
+        try FileManager.default.removeItem(at: url)
+        #expect(await waitUntil { events.all.last == .success(.default) })
+        #expect(try Configuration.decode(Data(contentsOf: url)) == .default)
+    }
+
+    @Test func deletingValidFileDoesNothing() async throws {
+        try store.save(.default)
+        let events = Events()
+        let watcher = store.watch { events.add($0) }
+        defer { watcher.cancel() }
+        try FileManager.default.removeItem(at: url)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(events.all.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
 }

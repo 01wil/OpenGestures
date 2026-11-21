@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppCore
 import AppKit
 import Config
+import ServiceManagement
 import SwiftUI
 
 struct GeneralPane: View {
@@ -12,7 +14,19 @@ struct GeneralPane: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Launch at login", isOn: setting(\.launchAtLogin))
+                Toggle("Launch at login", isOn: launchAtLogin)
+                if let login = model.loginItem {
+                    if let error = login.error {
+                        Text("Couldn’t change launch at login: \(error)").foregroundStyle(.red)
+                    }
+                    if login.status == .requiresApproval {
+                        LabeledContent {
+                            Button("Open Login Items…") { SMAppService.openSystemSettingsLoginItems() }
+                        } label: {
+                            Text("Requires approval in System Settings › General › Login Items.").foregroundStyle(.orange)
+                        }
+                    }
+                }
                 Toggle(isOn: setting(\.showMenuBarIcon)) {
                     Text("Show menu bar icon")
                     Text("When hidden, open OpenGestures again to get here.")
@@ -51,11 +65,19 @@ struct GeneralPane: View {
         }
         .formStyle(.grouped)
         .disabled(!model.canEdit)
+        .task { model.refreshLoginItem() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refreshLoginItem() }
         .frame(width: Design.paneWidth)
         .fixedSize(horizontal: false, vertical: true)
     }
 
     private var delegate: AppDelegate? { NSApp.delegate as? AppDelegate }
+
+    /// Shows the real login item state, not just the setting.
+    private var launchAtLogin: Binding<Bool> {
+        .init(get: { model.loginItem.map { $0.status != .notRegistered } ?? model.config.settings.launchAtLogin },
+              set: { model.setLaunchAtLogin($0) })
+    }
 
     private func setting(_ key: WritableKeyPath<Config.Settings, Bool>) -> Binding<Bool> {
         .init(get: { model.config.settings[keyPath: key] }, set: { value in model.update { $0.settings[keyPath: key] = value } })
