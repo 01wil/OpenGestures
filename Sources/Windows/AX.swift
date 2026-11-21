@@ -9,7 +9,13 @@ enum AX {
     static let timeout: Float = 0.25
     static var trusted: Bool { AXIsProcessTrusted() }
 
+    /// Elements without their own timeout (windows, found via an app element) fall back to this one.
+    private static let systemWide: Void = {
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), timeout)
+    }()
+
     static func application(_ pid: pid_t) -> AXUIElement {
+        _ = systemWide
         let e = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(e, timeout)
         return e

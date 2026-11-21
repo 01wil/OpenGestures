@@ -38,4 +38,11 @@ import Testing
         })
         #expect(recognize(frames).isEmpty)
     }
+
+    @Test func flickeringFingerDoesNotBreakFastSwipe() {
+        let frames = Synth.swipe(fingers: 4, direction: .left, distance: 0.3, duration: 0.2).enumerated().map { i, f in
+            i % 5 == 4 ? TouchFrame(timestamp: f.timestamp, touches: f.touches.filter { $0.id != 2 }) : f
+        }
+        #expect(recognize(frames) == [GestureEvent(.swipe(fingers: 4, direction: .left))])
+    }
 }

@@ -6,6 +6,7 @@ import Model
 /// Turns a stream of `TouchFrame`s into `GestureEvent`s. Not thread-safe; feed it from one queue.
 public final class GestureRecognizer {
     public var tuning: Tuning
+    private static let maxMissingFrames = 2
 
     private struct Track {
         var start: Point
@@ -35,6 +36,8 @@ public final class GestureRecognizer {
 
     private var positions: [Int: Point] = [:]
     private var palms: Set<Int> = []
+    /// Consecutive frames each finger has been absent while others stayed down.
+    private var missing: [Int: Int] = [:]
     private var session: Session?
 
     public init(tuning: Tuning = .init()) {
@@ -44,6 +47,7 @@ public final class GestureRecognizer {
     public func reset() {
         positions = [:]
         palms = []
+        missing = [:]
         session = nil
     }
 
@@ -52,9 +56,18 @@ public final class GestureRecognizer {
         let contacts = frame.touches.filter(\.isTouching)
         // A contact that was ever palm-sized stays ignored for its lifetime.
         palms = palms.intersection(contacts.map(\.id)).union(contacts.filter { $0.size > tuning.palmSize }.map(\.id))
-        let current = Dictionary(
+        var current = Dictionary(
             contacts.filter { !palms.contains($0.id) }.map { ($0.id, Point(x: Double($0.x), y: Double($0.y))) },
             uniquingKeysWith: { a, _ in a })
+        // A finger that drops out for a frame or two is still there, at its last position.
+        if current.isEmpty { missing = [:] } else {
+            let seen = current
+            missing = missing.filter { seen[$0.key] == nil }
+            for (id, p) in positions where seen[id] == nil {
+                let n = (missing[id] ?? 0) + 1
+                if n <= Self.maxMissingFrames { missing[id] = n; current[id] = p } else { missing[id] = nil }
+            }
+        }
         let landed = Set(current.keys).subtracting(positions.keys)
         let setChanged = !landed.isEmpty || current.count != positions.count
         let previous = positions

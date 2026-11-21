@@ -28,18 +28,20 @@ public final class WindowController {
     private func focus(_ target: (id: CGWindowID, pid: pid_t)?) -> Bool {
         guard AX.trusted, let (id, pid) = target, let app = NSRunningApplication(processIdentifier: pid) else { return false }
         if app.isHidden { app.unhide() }
+        var fronted = false
         if let w = AX.window(id: id, pid: pid) {
-            app.activate(from: .current, options: [])
             raise(w, pid: pid)
         } else {
             // Not listed by AX: another Space. Public API cannot front it, so use the window-server path.
-            PrivateFront.front(windowID: id, pid: pid)
-            app.activate(from: .current, options: [])
+            fronted = PrivateFront.front(windowID: id, pid: pid)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 if let w = AX.window(id: id, pid: pid) { Self.raise(w, pid: pid) }
             }
         }
-        return true
+        // A never-active menu bar app cannot hand activation over, so ask the target to come forward too.
+        if AX.set(AX.application(pid), kAXFrontmostAttribute, kCFBooleanTrue) { fronted = true }
+        if app.activate(from: .current, options: []) || app.activate(options: []) { fronted = true }
+        return fronted
     }
 
     private func raise(_ w: AXUIElement, pid: pid_t) { Self.raise(w, pid: pid) }

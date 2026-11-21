@@ -18,8 +18,21 @@ public struct SystemEventPoster: EventPosting {
 
     public func postKey(keyCode: CGKeyCode, flags: CGEventFlags, down: Bool) {
         let event = CGEvent(keyboardEventSource: CGEventSource(stateID: .hidSystemState), virtualKey: keyCode, keyDown: down)
-        event?.flags = flags
+        if let event { event.flags = Self.keyFlags(keyCode: keyCode, flags: flags, existing: event.flags) }
         post(event)
+    }
+
+    /// The combo's modifiers merged with the bits macOS sets on the key itself (secondaryFn, numericPad),
+    /// plus the ones a real keyboard produces for arrows, F-keys and the navigation cluster.
+    static func keyFlags(keyCode: CGKeyCode, flags: CGEventFlags, existing: CGEventFlags) -> CGEventFlags {
+        var result = flags.union(existing.intersection([.maskSecondaryFn, .maskNumericPad]))
+        switch keyCode {
+        case 123...126: result.formUnion([.maskSecondaryFn, .maskNumericPad])
+        case 115, 116, 117, 119, 121, 122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111, 105, 107, 113, 106, 64, 79, 80, 90:
+            result.insert(.maskSecondaryFn)
+        default: break
+        }
+        return result
     }
 
     public func postMouse(_ button: MouseButton, down: Bool) {
