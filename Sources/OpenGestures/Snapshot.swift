@@ -28,7 +28,7 @@ extension AppDelegate {
                 for (name, editor) in editors {
                     editor.orderFront(nil)
                     try? await Task.sleep(for: .milliseconds(500))
-                    Self.write(editor, to: "\(dir)/\(name)-\(suffix).png")
+                    Self.write(editor, to: "\(dir)/\(name)-\(suffix).png", chrome: false)
                     editor.orderOut(nil)
                 }
                 for pane in Pane.allCases {
@@ -41,11 +41,20 @@ extension AppDelegate {
         }
     }
 
-    private static func write(_ window: NSWindow, to path: String) {
+    /// `chrome: false` crops the title bar off: the editor is a sheet in the real app and has none.
+    private static func write(_ window: NSWindow, to path: String, chrome: Bool = true) {
         guard let view = window.contentView?.superview,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
-        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        var output = rep
+        if !chrome, let image = rep.cgImage {
+            let scale = CGFloat(rep.pixelsHigh) / view.bounds.height
+            let bar = Int(((view.bounds.height - (window.contentView?.frame.height ?? 0)) * scale).rounded()) + 2  // + the divider line
+            if let cropped = image.cropping(to: CGRect(x: 0, y: bar, width: image.width, height: image.height - bar)) {
+                output = NSBitmapImageRep(cgImage: cropped)
+            }
+        }
+        try? output.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
 }
 #endif
