@@ -100,18 +100,12 @@ extension Gesture: Codable {
 
 /// What the recogniser emits. Discrete gestures fire once with `delta == nil`;
 /// continuous ones fire repeatedly with a signed delta (positive = right/up).
-/// When the recogniser follows swipes, a fired swipe is followed by `.changed` events carrying the movement
-/// along its axis since the last one (positive = right/up) and one `.ended` event when the fingers lift.
 public struct GestureEvent: Equatable, Sendable {
-    public enum Phase: Sendable { case began, changed, ended }
-
     public var gesture: Gesture
     public var delta: Double?
-    public var phase: Phase
 
-    public init(_ gesture: Gesture, delta: Double? = nil, phase: Phase = .began) {
+    public init(_ gesture: Gesture, delta: Double? = nil) {
         self.gesture = gesture
         self.delta = delta
-        self.phase = phase
     }
 }

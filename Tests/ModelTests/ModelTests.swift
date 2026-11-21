@@ -57,7 +57,7 @@ import Testing
         .shortcut(name: "My Shortcut"),
         .systemKey(.playPause),
         .mouseClick(.middle),
-        .previousWindow(), .nextWindow(), .previousWindow(preview: true), .nextWindow(preview: true),
+        .previousWindow, .nextWindow,
         .previousDisplay, .nextDisplay, .cursorToNextDisplay,
         .windowLayout(.leftHalf),
         .adjust(.volume),
@@ -73,12 +73,10 @@ import Testing
         #expect(json.contains("\"bundleID\":\"com.apple.Safari\""))
     }
 
-    @Test func windowPreviewDefaultsOffAndIsOnlyWrittenWhenOn() throws {
-        let old = try JSONDecoder().decode(Action.self, from: Data(#"{"type":"previousWindow"}"#.utf8))
-        #expect(old == .previousWindow(preview: false))
-        #expect(String(decoding: try JSONEncoder().encode(Action.nextWindow()), as: UTF8.self) == #"{"type":"nextWindow"}"#)
-        let on = String(decoding: try JSONEncoder().encode(Action.nextWindow(preview: true)), as: UTF8.self)
-        #expect(on.contains(#""preview":true"#))
+    @Test func windowActionIgnoresLegacyPreviewKey() throws {
+        let old = try JSONDecoder().decode(Action.self, from: Data(#"{"type":"previousWindow","preview":true}"#.utf8))
+        #expect(old == .previousWindow)
+        #expect(String(decoding: try JSONEncoder().encode(Action.nextWindow), as: UTF8.self) == #"{"type":"nextWindow"}"#)
     }
 
     @Test func unknownActionTypeFailsToDecode() {

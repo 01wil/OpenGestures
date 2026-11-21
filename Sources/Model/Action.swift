@@ -41,9 +41,8 @@ public enum Action: Equatable, Sendable {
     case shortcut(name: String)
     case systemKey(SystemKey)
     case mouseClick(MouseButton)
-    /// `preview`: show the switcher overlay and keep stepping while the swipe continues.
-    case previousWindow(preview: Bool = false)
-    case nextWindow(preview: Bool = false)
+    case previousWindow
+    case nextWindow
     case previousDisplay
     case nextDisplay
     case cursorToNextDisplay
@@ -60,7 +59,7 @@ extension Action: Codable {
     }
 
     private enum Keys: String, CodingKey {
-        case type, key, modifiers, bundleID, url, path, script, name, button, layout, target, preview
+        case type, key, modifiers, bundleID, url, path, script, name, button, layout, target
     }
 
     public init(from decoder: Decoder) throws {
@@ -77,8 +76,8 @@ extension Action: Codable {
         case .shortcut: self = .shortcut(name: try c.decode(String.self, forKey: .name))
         case .systemKey: self = .systemKey(try c.decode(SystemKey.self, forKey: .key))
         case .mouseClick: self = .mouseClick(try c.decode(MouseButton.self, forKey: .button))
-        case .previousWindow: self = .previousWindow(preview: try c.decodeIfPresent(Bool.self, forKey: .preview) ?? false)
-        case .nextWindow: self = .nextWindow(preview: try c.decodeIfPresent(Bool.self, forKey: .preview) ?? false)
+        case .previousWindow: self = .previousWindow
+        case .nextWindow: self = .nextWindow
         case .previousDisplay: self = .previousDisplay
         case .nextDisplay: self = .nextDisplay
         case .cursorToNextDisplay: self = .cursorToNextDisplay
@@ -118,12 +117,8 @@ extension Action: Codable {
         case let .mouseClick(b):
             try c.encode(Kind.mouseClick, forKey: .type)
             try c.encode(b, forKey: .button)
-        case let .previousWindow(preview):
-            try c.encode(Kind.previousWindow, forKey: .type)
-            if preview { try c.encode(true, forKey: .preview) }
-        case let .nextWindow(preview):
-            try c.encode(Kind.nextWindow, forKey: .type)
-            if preview { try c.encode(true, forKey: .preview) }
+        case .previousWindow: try c.encode(Kind.previousWindow, forKey: .type)
+        case .nextWindow: try c.encode(Kind.nextWindow, forKey: .type)
         case .previousDisplay: try c.encode(Kind.previousDisplay, forKey: .type)
         case .nextDisplay: try c.encode(Kind.nextDisplay, forKey: .type)
         case .cursorToNextDisplay: try c.encode(Kind.cursorToNextDisplay, forKey: .type)

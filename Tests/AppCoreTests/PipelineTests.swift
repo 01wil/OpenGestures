@@ -38,15 +38,6 @@ func fourFingerSwipeLeft() -> [TouchFrame] {
         #expect(events == [swipeLeft])
     }
 
-    @Test func followsSwipesWhenAsked() {
-        let p = GesturePipeline()
-        p.setFollowsSwipes(true)
-        let events = fourFingerSwipeLeft().flatMap { p.process(device: 1, frame: $0) }
-        #expect(events.first == swipeLeft)
-        #expect(events.dropFirst().dropLast().allSatisfy { $0.phase == .changed })
-        #expect(events.last == GestureEvent(swipeLeft.gesture, phase: .ended))
-    }
-
     @Test func lowerSensitivityNeedsMoreMovement() {
         let p = GesturePipeline()
         p.setSensitivity(0)
@@ -62,14 +53,14 @@ func fourFingerSwipeLeft() -> [TouchFrame] {
     let slide = Gesture.edgeSlide(edge: .right)
 
     @Test func discreteGestureRunsTheResolvedAction() {
-        let bindings = [Binding(gesture: left, action: .previousWindow()),
+        let bindings = [Binding(gesture: left, action: .previousWindow),
                         Binding(gesture: left, modifiers: .command, action: .previousDisplay)]
         #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: .command, app: nil) == .run(.previousDisplay))
-        #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: [], app: nil) == .run(.previousWindow()))
+        #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: [], app: nil) == .run(.previousWindow))
     }
 
     @Test func appBindingWins() {
-        let bindings = [Binding(gesture: left, action: .previousWindow()),
+        let bindings = [Binding(gesture: left, action: .previousWindow),
                         Binding(gesture: left, apps: ["com.apple.Safari"], action: .keyboardShortcut(KeyCombo(key: "[", modifiers: .command)))]
         #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: [], app: "com.apple.Safari")
                 == .run(.keyboardShortcut(KeyCombo(key: "[", modifiers: .command))))
@@ -81,24 +72,9 @@ func fourFingerSwipeLeft() -> [TouchFrame] {
     }
 
     @Test func mismatchedKindsDoNothing() {
-        let bindings = [Binding(gesture: slide, action: .nextWindow()), Binding(gesture: left, action: .adjust(.volume))]
+        let bindings = [Binding(gesture: slide, action: .nextWindow), Binding(gesture: left, action: .adjust(.volume))]
         #expect(Dispatcher.dispatch(GestureEvent(slide, delta: 0.1), bindings: bindings, modifiers: [], app: nil) == nil)
         #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: [], app: nil) == nil)
-    }
-
-    @Test func previewOnASwipeOpensTheSwitcher() {
-        let bindings = [Binding(gesture: left, action: .previousWindow(preview: true)),
-                        Binding(gesture: .tap(fingers: 3), action: .nextWindow(preview: true))]
-        #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: [], app: nil) == .switcher(older: true))
-        // A tap has no movement to follow: plain jump.
-        #expect(Dispatcher.dispatch(GestureEvent(.tap(fingers: 3)), bindings: bindings, modifiers: [], app: nil) == .run(.nextWindow(preview: true)))
-    }
-
-    @Test func followEventsNeverDispatch() {
-        let bindings = [Binding(gesture: left, action: .previousWindow(preview: true)), Binding(gesture: slide, action: .adjust(.volume))]
-        for phase in [GestureEvent.Phase.changed, .ended] {
-            #expect(Dispatcher.dispatch(GestureEvent(left, delta: phase == .changed ? -0.1 : nil, phase: phase), bindings: bindings, modifiers: [], app: nil) == nil)
-        }
     }
 
     @Test func cgFlagsMapToModifiers() {

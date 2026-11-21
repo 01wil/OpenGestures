@@ -12,18 +12,18 @@ import Model
     }
 
     @Test func globalBindingMatches() {
-        let b = Binding(gesture: left, action: .previousWindow())
+        let b = Binding(gesture: left, action: .previousWindow)
         #expect(resolve([b], left, app: "com.x") == b)
     }
 
     @Test func nothingMatchesReturnsNil() {
-        let b = Binding(gesture: left, action: .previousWindow())
+        let b = Binding(gesture: left, action: .previousWindow)
         #expect(resolve([b], .tap(fingers: 3)) == nil)
         #expect(resolve([], left) == nil)
     }
 
     @Test func modifiersMustMatchExactly() {
-        let plain = Binding(gesture: left, action: .previousWindow())
+        let plain = Binding(gesture: left, action: .previousWindow)
         let cmd = Binding(gesture: left, modifiers: .command, action: .previousDisplay)
         #expect(resolve([plain, cmd], left) == plain)
         #expect(resolve([plain, cmd], left, .command) == cmd)
@@ -32,13 +32,13 @@ import Model
     }
 
     @Test func disabledBindingsAreIgnored() {
-        let off = Binding(gesture: left, action: .previousWindow(), enabled: false)
+        let off = Binding(gesture: left, action: .previousWindow, enabled: false)
         #expect(resolve([off], left) == nil)
     }
 
     @Test func appBindingBeatsGlobalOnlyInThatApp() {
-        let global = Binding(gesture: left, action: .previousWindow())
-        let app = Binding(gesture: left, apps: ["com.apple.Safari", "com.google.Chrome"], action: .nextWindow())
+        let global = Binding(gesture: left, action: .previousWindow)
+        let app = Binding(gesture: left, apps: ["com.apple.Safari", "com.google.Chrome"], action: .nextWindow)
         #expect(resolve([global, app], left, app: "com.google.Chrome") == app)
         #expect(resolve([app, global], left, app: "com.apple.Safari") == app)
         #expect(resolve([global, app], left, app: "com.apple.Notes") == global)
@@ -46,8 +46,8 @@ import Model
     }
 
     @Test func disabledAppBindingFallsBackToGlobal() {
-        let global = Binding(gesture: left, action: .previousWindow())
-        let app = Binding(gesture: left, apps: ["a"], action: .nextWindow(), enabled: false)
+        let global = Binding(gesture: left, action: .previousWindow)
+        let app = Binding(gesture: left, apps: ["a"], action: .nextWindow, enabled: false)
         #expect(resolve([global, app], left, app: "a") == global)
     }
 }

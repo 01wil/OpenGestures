@@ -10,17 +10,9 @@ public struct Tuning: Sendable, Equatable {
     /// Contacts larger than this (`Touch.size`) are treated as a resting palm or thumb and ignored.
     public var palmSize: Float
 
-    /// Keep reporting a swipe's movement after it fired, until the fingers lift (see `GestureEvent.Phase`).
-    public var followsSwipes: Bool
-
-    /// A followed swipe survives this long with contacts on the pad but none touching (the sensor reports a
-    /// lightened hand as lifting or hovering); it ends at once when the contacts are gone.
-    let followGrace = 0.15
-
-    public init(sensitivity: Double = 0.5, palmSize: Float = 2, followsSwipes: Bool = false) {
+    public init(sensitivity: Double = 0.5, palmSize: Float = 2) {
         self.sensitivity = sensitivity
         self.palmSize = palmSize
-        self.followsSwipes = followsSwipes
     }
 
     /// 2 at sensitivity 0, 1 at 0.5, 0.5 at 1; multiplies every movement threshold.

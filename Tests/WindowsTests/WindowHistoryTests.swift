@@ -24,8 +24,7 @@ import Testing
         #expect(h.next(now: 10) == 1)
     }
 
-    /// The switcher lists windows mid-flick: the walked-to window must already be first.
-    /// The switcher lists windows mid-walk: the walked-to window must already be first.
+    /// Settling a walk records the walked-to window as most recent.
     @Test func settleCommitsTheWalk() {
         var h = history([1, 2, 3, 4])   // order 4,3,2,1
         _ = h.previous(now: 10)

@@ -28,13 +28,13 @@ import Model
     }
 
     @Test func disabledBindingsDoNotConflict() {
-        let b = Binding(gesture: .swipe(fingers: 4, direction: .left), action: .nextWindow(), enabled: false)
+        let b = Binding(gesture: .swipe(fingers: 4, direction: .left), action: .nextWindow, enabled: false)
         #expect(find([b], builtIn: ["TrackpadFourFingerHorizSwipeGesture": 2]).isEmpty)
     }
 
     @Test func otherGesturesMapToTheirKeys() {
         func conflict(_ g: Gesture, _ key: String, _ value: Int = 2) -> [SystemGestureConflict] {
-            find([Binding(gesture: g, action: .nextWindow())], builtIn: [key: value])
+            find([Binding(gesture: g, action: .nextWindow)], builtIn: [key: value])
         }
         #expect(conflict(.swipe(fingers: 4, direction: .up), "TrackpadFourFingerVertSwipeGesture").count == 1)
         #expect(conflict(.swipe(fingers: 3, direction: .left), "TrackpadThreeFingerHorizSwipeGesture", 1).count == 1)
@@ -48,15 +48,15 @@ import Model
 
     @Test func anyFiveFingerGestureConflictsWithFiveFingerPinch() {
         let key = ["TrackpadFiveFingerPinchGesture": 2]
-        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .left), action: .nextWindow())], builtIn: key).count == 1)
-        #expect(find([Binding(gesture: .tap(fingers: 5), action: .nextWindow())], builtIn: key).count == 1)
-        #expect(find([Binding(gesture: .tap(fingers: 4), action: .nextWindow())], builtIn: key).isEmpty)
+        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .left), action: .nextWindow)], builtIn: key).count == 1)
+        #expect(find([Binding(gesture: .tap(fingers: 5), action: .nextWindow)], builtIn: key).count == 1)
+        #expect(find([Binding(gesture: .tap(fingers: 4), action: .nextWindow)], builtIn: key).isEmpty)
     }
 
     @Test func fourFingerSystemSwipesAlsoCatchFiveFingers() {
-        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .up), action: .nextWindow())],
+        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .up), action: .nextWindow)],
                      builtIn: ["TrackpadFourFingerVertSwipeGesture": 2]).count == 1)
-        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .left), action: .nextWindow())],
+        #expect(find([Binding(gesture: .swipe(fingers: 5, direction: .left), action: .nextWindow)],
                      builtIn: ["TrackpadFourFingerHorizSwipeGesture": 2]).count == 1)
     }
 
@@ -65,7 +65,7 @@ import Model
                    "TrackpadThreeFingerDrag", "TrackpadThreeFingerTapGesture"]
         let prefs = Dictionary(uniqueKeysWithValues: all.map { ($0, 2 as Any) })
         let b = [Gesture.swipe(fingers: 2, direction: .left), .tap(fingers: 2), .rotate(.clockwise), .cornerTap(corner: .topLeft)]
-            .map { Binding(gesture: $0, action: .nextWindow()) }
+            .map { Binding(gesture: $0, action: .nextWindow) }
         #expect(find(b, builtIn: prefs).isEmpty)
     }
 

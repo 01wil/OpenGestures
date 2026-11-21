@@ -99,7 +99,7 @@ struct BindingEditor: View {
                             }
                         }
                     }
-                    ActionFields(action: $action, isSwipe: draft.kind == .swipe)
+                    ActionFields(action: $action)
                     if let hint = action.missingField { Hint(hint) }
                 }
                 NotesSection(notes: Notes(others + [result], only: result.id))
@@ -178,8 +178,6 @@ private struct GestureParameter: View {
 /// Only the fields the chosen action needs.
 private struct ActionFields: View {
     @SwiftUI.Binding var action: Action
-    /// The switcher preview follows the swipe, so other gestures do not offer it.
-    let isSwipe: Bool
 
     var body: some View {
         switch action {
@@ -224,14 +222,7 @@ private struct ActionFields: View {
                 ForEach(MouseButton.allCases, id: \.self) { Text($0.rawValue.capitalized) }
             }
             .pickerStyle(.segmented)
-        case let .previousWindow(preview), let .nextWindow(preview):
-            if isSwipe {
-                Toggle(isOn: .init(get: { preview }, set: { action = action.kind == .previousWindow ? .previousWindow(preview: $0) : .nextWindow(preview: $0) })) {
-                    Text("Show preview")
-                    Text("Keep swiping to step through windows, lift to switch.")
-                }
-            }
-        case .previousDisplay, .nextDisplay, .cursorToNextDisplay:
+        case .previousWindow, .nextWindow, .previousDisplay, .nextDisplay, .cursorToNextDisplay:
             EmptyView()
         }
     }

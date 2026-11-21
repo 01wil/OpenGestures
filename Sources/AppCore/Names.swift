@@ -132,8 +132,8 @@ public enum ActionKind: String, CaseIterable, Sendable {
 
     public var defaultAction: Action {
         switch self {
-        case .previousWindow: .previousWindow()
-        case .nextWindow: .nextWindow()
+        case .previousWindow: .previousWindow
+        case .nextWindow: .nextWindow
         case .previousDisplay: .previousDisplay
         case .nextDisplay: .nextDisplay
         case .windowLayout: .windowLayout(.maximize)
@@ -188,7 +188,6 @@ extension Action {
         case let .mouseClick(b): "\(b.rawValue.capitalized) click"
         case let .windowLayout(l): l.title
         case let .adjust(t): "Adjust \(t.rawValue)"
-        case .previousWindow(true), .nextWindow(true): "\(kind.title), with preview"
         default: kind.title
         }
     }

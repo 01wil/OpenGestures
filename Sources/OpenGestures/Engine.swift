@@ -18,9 +18,6 @@ final class Engine {
     private lazy var runner = ActionRunner(windows: WindowCommandsAdapter(controller: windows), onError: { [weak self] error in
         Task { @MainActor in self?.report(error.message) }
     })
-    private let switcherPanel = SwitcherPanel()
-    /// Open while the fingers that started it stay down.
-    private var switcher: Switcher<WindowInfo>?
     private var bindings: [Binding] = []
     private var enabled = false
     private var running = false
@@ -50,15 +47,12 @@ final class Engine {
         self.bindings = bindings
         self.enabled = enabled
         pipeline.setSensitivity(sensitivity)
-        pipeline.setFollowsSwipes(bindings.contains { $0.enabled && [.previousWindow(preview: true), .nextWindow(preview: true)].contains($0.action) })
-        if !enabled { closeSwitcher() }
         updateRunning()
     }
 
     /// The next recognised gesture goes to `completion` instead of running a binding. Works while paused.
     func record(_ completion: @escaping (Gesture, Modifiers) -> Void) {
         recorder = completion
-        closeSwitcher()
         updateRunning()
     }
 
@@ -85,17 +79,12 @@ final class Engine {
         } else {
             MultitouchBridge.shared.stop()
             pipeline.reset()
-            closeSwitcher()
             log.info("engine stopped")
         }
     }
 
     private func handle(_ events: [GestureEvent], modifiers: Modifiers) {
         for event in events {
-            if event.phase != .began {
-                follow(event)
-                continue
-            }
             if let recorder {
                 self.recorder = nil
                 updateRunning()
@@ -112,47 +101,9 @@ final class Engine {
             switch dispatch {
             case let .run(action)?: runner.run(action)
             case let .adjust(target, delta)?: runner.adjust(target, delta: delta)
-            case let .switcher(older)?: openSwitcher(older: older)
             case nil: break
             }
         }
-    }
-
-    // MARK: Switcher
-
-    private func openSwitcher(older: Bool) {
-        guard let s = Switcher(items: windows.windows(), older: older) else {
-            // Nothing to choose from: the plain jump reports why.
-            return runner.run(older ? .previousWindow() : .nextWindow())
-        }
-        switcher = s
-        switcherPanel.show(s.items.map(SwitcherCard.init), selected: s.selected)
-        log.info("switcher opened, \(s.items.count) windows, selected \(s.selected)")
-    }
-
-    /// Movement after the swipe steps the highlight; lifting the fingers focuses the highlighted window.
-    private func follow(_ event: GestureEvent) {
-        guard var s = switcher else { return }
-        switch event.phase {
-        case .changed:
-            guard let delta = event.delta, s.move(delta) else { return }
-            switcher = s
-            switcherPanel.select(s.selected)
-            log.info("switcher step, selected \(s.selected)")
-        case .ended:
-            closeSwitcher()
-            log.info("switcher commit, selected \(s.selected) of \(s.items.count)")
-            if !windows.focus(s.selection) {
-                report(AXIsProcessTrusted() ? "Could not switch to that window." : "OpenGestures needs Accessibility access to control windows (Settings › Permissions).")
-            }
-        case .began: break
-        }
-    }
-
-    private func closeSwitcher() {
-        guard switcher != nil else { return }
-        switcher = nil
-        switcherPanel.hide()
     }
 
     // MARK: Device changes
@@ -168,7 +119,6 @@ final class Engine {
     private func restart() {
         guard running else { return }
         pipeline.reset()
-        closeSwitcher()
         MultitouchBridge.shared.restart()
         log.info("engine restarted, \(MultitouchBridge.shared.deviceCount) trackpad(s)")
     }

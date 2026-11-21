@@ -17,7 +17,7 @@ import Model
         let b = Configuration.default.bindings
         #expect(b.map(\.gesture.id) == ["swipe.4.left", "swipe.4.right", "swipe.4.left", "swipe.4.right"])
         #expect(b.map(\.modifiers) == [[], [], .command, .command])
-        #expect(b.map(\.action) == [.previousWindow(), .nextWindow(), .previousDisplay, .nextDisplay])
+        #expect(b.map(\.action) == [.previousWindow, .nextWindow, .previousDisplay, .nextDisplay])
         #expect(b.allSatisfy { $0.isGlobal && $0.enabled && $0.name != nil })
         #expect(Set(b.map(\.id)).count == 4)
         #expect(Configuration.default.version == Configuration.currentVersion)

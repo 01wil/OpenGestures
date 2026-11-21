@@ -12,8 +12,8 @@ import Model
     }
 
     @Test func duplicateGlobalTriggersWarn() {
-        let a = Binding(gesture: left, action: .previousWindow())
-        let b = Binding(gesture: left, action: .nextWindow())
+        let a = Binding(gesture: left, action: .previousWindow)
+        let b = Binding(gesture: left, action: .nextWindow)
         let w = Validator.warnings(for: [a, b])
         #expect(w.count == 1)
         #expect(w.first?.kind == .duplicateTrigger)
@@ -22,27 +22,27 @@ import Model
     }
 
     @Test func differentModifiersAreNotDuplicates() {
-        let a = Binding(gesture: left, action: .previousWindow())
-        let b = Binding(gesture: left, modifiers: .command, action: .nextWindow())
+        let a = Binding(gesture: left, action: .previousWindow)
+        let b = Binding(gesture: left, modifiers: .command, action: .nextWindow)
         #expect(Validator.warnings(for: [a, b]).isEmpty)
     }
 
     @Test func appOverridingGlobalIsNotADuplicate() {
-        let a = Binding(gesture: left, action: .previousWindow())
-        let b = Binding(gesture: left, apps: ["x"], action: .nextWindow())
+        let a = Binding(gesture: left, action: .previousWindow)
+        let b = Binding(gesture: left, apps: ["x"], action: .nextWindow)
         #expect(Validator.warnings(for: [a, b]).isEmpty)
     }
 
     @Test func overlappingAppScopesWarn() {
-        let a = Binding(gesture: left, apps: ["x", "y"], action: .previousWindow())
-        let b = Binding(gesture: left, apps: ["y", "z"], action: .nextWindow())
-        let c = Binding(gesture: left, apps: ["q"], action: .nextWindow())
+        let a = Binding(gesture: left, apps: ["x", "y"], action: .previousWindow)
+        let b = Binding(gesture: left, apps: ["y", "z"], action: .nextWindow)
+        let c = Binding(gesture: left, apps: ["q"], action: .nextWindow)
         #expect(Validator.warnings(for: [a, b, c]).map(\.kind) == [.duplicateTrigger])
     }
 
     @Test func disabledBindingsDoNotDuplicate() {
-        let a = Binding(gesture: left, action: .previousWindow())
-        let b = Binding(gesture: left, action: .nextWindow(), enabled: false)
+        let a = Binding(gesture: left, action: .previousWindow)
+        let b = Binding(gesture: left, action: .nextWindow, enabled: false)
         #expect(Validator.warnings(for: [a, b]).isEmpty)
     }
 
@@ -54,7 +54,7 @@ import Model
     }
 
     @Test func continuousGestureNeedsAdjust() {
-        let bad = Binding(gesture: .edgeSlide(edge: .left), action: .nextWindow())
+        let bad = Binding(gesture: .edgeSlide(edge: .left), action: .nextWindow)
         #expect(Validator.warnings(for: [bad]).map(\.kind) == [.discreteActionOnContinuousGesture])
     }
 }

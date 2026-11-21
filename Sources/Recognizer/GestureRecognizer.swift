@@ -2,9 +2,6 @@
 
 import Foundation
 import Model
-import os
-
-private let logger = Logger(subsystem: "io.github.opengestures.OpenGestures", category: "recognizer")
 
 /// Turns a stream of `TouchFrame`s into `GestureEvent`s. Not thread-safe; feed it from one queue.
 public final class GestureRecognizer {
@@ -35,8 +32,6 @@ public final class GestureRecognizer {
         var tipTaps = 0
         /// The edge a one-finger slide runs along, and how far along it has been reported so far.
         var slide: (edge: Gesture.Edge, reported: Double)?
-        /// The swipe being followed after it fired.
-        var follow: (fingers: Int, direction: Gesture.Direction)?
     }
 
     private var positions: [Int: Point] = [:]
@@ -73,10 +68,6 @@ public final class GestureRecognizer {
                 if n <= Self.maxMissingFrames { missing[id] = n; current[id] = p } else { missing[id] = nil }
             }
         }
-        // While following, a frame with contacts but none touching is the hand lightening, not lifting.
-        if current.isEmpty, let s = session, s.follow != nil, !frame.touches.isEmpty, t - s.last < tuning.followGrace {
-            return []
-        }
         let landed = Set(current.keys).subtracting(positions.keys)
         let setChanged = !landed.isEmpty || current.count != positions.count
         let previous = positions
@@ -84,10 +75,6 @@ public final class GestureRecognizer {
 
         guard !current.isEmpty else {
             defer { session = nil }
-            if let f = session?.follow {
-                logger.info("follow ended: \(frame.touches.isEmpty ? "all fingers lifted" : "no finger touching for \(self.tuning.followGrace) s", privacy: .public)")
-                return [GestureEvent(.swipe(fingers: f.fingers, direction: f.direction), phase: .ended)]
-            }
             return session.flatMap(ended).map { [GestureEvent($0)] } ?? []
         }
         var s = session ?? Session(start: t, last: t)
@@ -118,25 +105,12 @@ public final class GestureRecognizer {
         if s.maxCount == 1, let (id, p) = current.first, let track = s.tracks[id] {
             events += oneFinger(&s, track, p)
         }
-        if let f = s.follow, let delta = Self.movement(along: f.direction, from: previous, to: current), delta != 0 {
-            events.append(GestureEvent(.swipe(fingers: f.fingers, direction: f.direction), delta: delta, phase: .changed))
-        }
         if !s.done, current.count >= 2, current.count == s.maxCount, let g = multiFinger(&s, t) {
             s.done = true
-            if tuning.followsSwipes, case let .swipe(n, d) = g { s.follow = (n, d) }
             events.append(GestureEvent(g))
         }
         session = s
         return events
-    }
-
-    /// Mean movement of the fingers present in both frames, along the swipe's axis (positive = right/up),
-    /// so a finger landing or lifting does not move the result.
-    private static func movement(along direction: Gesture.Direction, from a: [Int: Point], to b: [Int: Point]) -> Double? {
-        let moves = b.compactMap { id, p in a[id].map { p - $0 } }
-        guard !moves.isEmpty else { return nil }
-        let d = moves.reduce(Point.zero, +) / Double(moves.count)
-        return direction == .left || direction == .right ? d.x : d.y
     }
 
     private func ended(_ s: Session) -> Gesture? {

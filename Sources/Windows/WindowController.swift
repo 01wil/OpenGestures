@@ -3,19 +3,6 @@
 import AppKit
 import Model
 
-public struct WindowInfo: Sendable {
-    public let id: CGWindowID
-    public let pid: pid_t
-    /// Empty when neither Accessibility nor the window server will tell.
-    public let title: String
-
-    public init(id: CGWindowID, pid: pid_t, title: String) {
-        self.id = id
-        self.pid = pid
-        self.title = title
-    }
-}
-
 /// The window operations the Actions module calls. All return false when they could not act (no
 /// Accessibility permission, no target, single display); none throws, blocks long, or moves anything
 /// outside the intended window / cursor. Call `start()` once; main actor only.
@@ -37,19 +24,6 @@ public final class WindowController {
 
     @discardableResult public func focusPreviousWindow() -> Bool { focus(tracker.previous()) }
     @discardableResult public func focusNextWindow() -> Bool { focus(tracker.next()) }
-    @discardableResult public func focus(_ window: WindowInfo) -> Bool { focus((window.id, window.pid)) }
-
-    /// Known windows, most recently used first (the current one first), for the switcher.
-    public func windows() -> [WindowInfo] {
-        let items = tracker.ordered()
-        var titles: [CGWindowID: String] = [:]
-        for pid in Set(items.map(\.pid)) {
-            for w in AX.value(AX.application(pid), kAXWindowsAttribute) as? [AXUIElement] ?? [] {
-                if let id = AX.windowID(w), let title = AX.value(w, kAXTitleAttribute) as? String { titles[id] = title }
-            }
-        }
-        return items.map { WindowInfo(id: $0.id, pid: $0.pid, title: titles[$0.id] ?? $0.title ?? "") }
-    }
 
     private func focus(_ target: (id: CGWindowID, pid: pid_t)?) -> Bool {
         guard AX.trusted, let (id, pid) = target, let app = NSRunningApplication(processIdentifier: pid) else { return false }
