@@ -25,6 +25,14 @@ public enum DisplayGeometry {
         return order[(pos + (forward ? 1 : order.count - 1)) % order.count]
     }
 
+    /// The display under `point`, edges included (NSMouseInRect misses the top row), else the nearest one.
+    public static func display(containing point: CGPoint, in frames: [CGRect]) -> Int? {
+        func distance(_ r: CGRect) -> CGFloat {
+            hypot(max(r.minX - point.x, 0, point.x - r.maxX), max(r.minY - point.y, 0, point.y - r.maxY))
+        }
+        return frames.indices.min { distance(frames[$0]) < distance(frames[$1]) }
+    }
+
     /// Keep size (shrunk to fit) and edge insets; a window filling the source fills the target.
     public static func rect(moving current: CGRect, from source: CGRect, to target: CGRect) -> CGRect {
         guard source.width > 0, source.height > 0, target.width > 0, target.height > 0 else { return current }

@@ -37,9 +37,12 @@ public final class MultitouchBridge: @unchecked Sendable {
         lock.withLock { handler = nil }
     }
 
-    /// Re-scan devices, e.g. after wake from sleep or when a Magic Trackpad connects.
-    public func restart() {
+    /// Re-scan devices, e.g. after wake from sleep or when a Magic Trackpad connects. `between` runs once
+    /// the old devices are stopped and before the new ones start: a new device can reuse a freed device's
+    /// address, so per-device state keyed by it must be dropped exactly there.
+    public func restart(between: () -> Void = {}) {
         detach()
+        between()
         attach()
     }
 

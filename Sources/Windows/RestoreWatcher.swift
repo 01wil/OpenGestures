@@ -10,12 +10,17 @@ final class RestoreWatcher {
 
     private final class Box { let id: CGWindowID; unowned let owner: RestoreWatcher
         init(_ id: CGWindowID, _ owner: RestoreWatcher) { self.id = id; self.owner = owner } }
-    private struct Entry { let observer: AXObserver; let element: AXUIElement; let box: Unmanaged<Box> }
+    private struct Entry { let observer: AXObserver; let element: AXUIElement; let pid: pid_t; let box: Unmanaged<Box> }
 
     var onEvent: ((CGWindowID, Event) -> Void)?
     private var entries: [CGWindowID: Entry] = [:]
 
     func element(for id: CGWindowID) -> AXUIElement? { entries[id]?.element }
+
+    /// Watched windows, all or only those owned by `pid`.
+    func ids(pid: pid_t? = nil) -> [CGWindowID] {
+        entries.filter { pid == nil || $0.value.pid == pid }.map(\.key)
+    }
 
     func watch(_ id: CGWindowID, _ window: AXUIElement) {
         var pid: pid_t = 0
@@ -34,7 +39,7 @@ final class RestoreWatcher {
             AXObserverAddNotification(obs, window, n as CFString, box.toOpaque())
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
-        entries[id] = Entry(observer: obs, element: window, box: box)
+        entries[id] = Entry(observer: obs, element: window, pid: pid, box: box)
     }
 
     func unwatch(_ id: CGWindowID) {

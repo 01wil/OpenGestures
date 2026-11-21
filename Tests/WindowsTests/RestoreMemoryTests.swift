@@ -89,6 +89,17 @@ import Testing
         #expect(m.original(of: 1) == nil)
     }
 
+    @Test func keepsAtMostCapacityWindowsAndEvictsTheOldest() {
+        var m = RestoreMemory<Int>()
+        let n = RestoreMemory<Int>.capacity
+        for k in 0..<n { _ = m.toggle(k, current: original, target: screen) }
+        _ = m.toggle(0, current: screen, target: half)  // updating an entry neither evicts nor refreshes it
+        #expect((0..<n).allSatisfy { m.original(of: $0) == original })
+        _ = m.toggle(n, current: original, target: screen)
+        #expect(m.original(of: 0) == nil)
+        #expect((1...n).allSatisfy { m.original(of: $0) == original })
+    }
+
     @Test func snappedWindowRestoresOnSecondTap() {
         var m = RestoreMemory<Int>()
         let snapped = CGRect(x: 0, y: 25, width: 700, height: 860)

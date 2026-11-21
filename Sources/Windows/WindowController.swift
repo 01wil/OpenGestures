@@ -16,7 +16,16 @@ public final class WindowController {
         watcher.onEvent = { [weak self] id, event in self?.windowEvent(id, event) }
     }
 
-    public func start() { tracker.start() }
+    public func start() {
+        tracker.start()
+        // An app that quits posts no destroyed notification for its windows.
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification,
+                                                          object: nil, queue: .main) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            let pid = app.processIdentifier
+            MainActor.assumeIsolated { self?.forgetWindows(of: pid) }
+        }
+    }
 
     /// Re-attaches focus tracking, e.g. once Accessibility has been granted.
     public func restart() {
@@ -112,6 +121,8 @@ public final class WindowController {
             if ok, memory.original(of: id) != nil {
                 memory.placed(id, at: AX.frame(of: w) ?? target)
                 watcher.watch(id, w)
+                // The memory is bounded: stop watching what it evicted.
+                for old in watcher.ids() where memory.original(of: old) == nil { watcher.unwatch(old) }
             } else {
                 forget(id)
             }
@@ -124,6 +135,10 @@ public final class WindowController {
         watcher.unwatch(id)
     }
 
+    private func forgetWindows(of pid: pid_t) {
+        for id in watcher.ids(pid: pid) { forget(id) }
+    }
+
     /// The user resizing or closing a window drops its saved frame; dragging it with the left button
     /// down restores the saved size under the cursor. Our own setFrame reports the size we placed.
     private func windowEvent(_ id: CGWindowID, _ event: RestoreWatcher.Event) {
@@ -132,8 +147,9 @@ public final class WindowController {
         guard event == .moved, NSEvent.pressedMouseButtons & 1 != 0, let original = memory.original(of: id) else { return }
         let maxY = Self.primaryMaxY
         let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
-        guard let visible = screen?.visibleFrame else { return }
+        let screens = NSScreen.screens
+        guard let s = DisplayGeometry.display(containing: mouse, in: screens.map(\.frame)) else { return }
+        let visible = screens[s].visibleFrame
         let target = DisplayGeometry.restoredFrame(dragging: frame, restoreSize: original.size,
                                                    pointer: CGPoint(x: mouse.x, y: maxY - mouse.y),
                                                    in: DisplayGeometry.ax(fromAppKit: visible, primaryMaxY: maxY))
@@ -169,7 +185,7 @@ public final class WindowController {
     @discardableResult public func moveCursorToNextDisplay() -> Bool {
         let screens = NSScreen.screens
         let mouse = NSEvent.mouseLocation
-        guard let i = screens.firstIndex(where: { NSMouseInRect(mouse, $0.frame, false) }),
+        guard let i = DisplayGeometry.display(containing: mouse, in: screens.map(\.frame)),
               let j = DisplayGeometry.adjacent(to: i, in: screens.map(\.frame), forward: true),
               let number = screens[j].deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
         else { return false }

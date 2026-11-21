@@ -63,7 +63,8 @@ enum AX {
 
     /// AX frame (top-left origin).
     static func frame(of window: AXUIElement) -> CGRect? {
-        guard let p = value(window, kAXPositionAttribute), let s = value(window, kAXSizeAttribute) else { return nil }
+        guard let p = value(window, kAXPositionAttribute), let s = value(window, kAXSizeAttribute),
+              CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
         var origin = CGPoint.zero, size = CGSize.zero
         guard AXValueGetValue(p as! AXValue, .cgPoint, &origin), AXValueGetValue(s as! AXValue, .cgSize, &size)
         else { return nil }

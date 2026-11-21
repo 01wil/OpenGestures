@@ -95,7 +95,8 @@ public struct ProcessLauncher: ProcessLaunching {
         Job(pid: pid, readFD: fds[0], completion: completion).start(timeout: timeout)
     }
 
-    /// All state is touched on `queue` only.
+    /// All state is touched on `queue` only. `readFD` is closed once, by the reader's cancel handler, and
+    /// never read once the reader is cancelled (the number may already belong to another file).
     private final class Job: @unchecked Sendable {
         let pid: pid_t
         let readFD: Int32
@@ -104,6 +105,7 @@ public struct ProcessLauncher: ProcessLaunching {
         var output = Data()
         var exited = false
         var reported = false
+        var readerCancelled = false
         var reader: DispatchSourceRead?
         var exitSource: DispatchSourceProcess?
 
@@ -114,7 +116,7 @@ public struct ProcessLauncher: ProcessLaunching {
         func start(timeout: TimeInterval) {
             _ = fcntl(readFD, F_SETFL, fcntl(readFD, F_GETFL) | O_NONBLOCK)
             let reader = DispatchSource.makeReadSource(fileDescriptor: readFD, queue: queue)
-            reader.setEventHandler { [self] in if !drain() { reader.cancel() } }
+            reader.setEventHandler { [self] in if !drain() { cancelReader() } }
             reader.setCancelHandler { [readFD] in close(readFD) }
             self.reader = reader
             let exit = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: queue)
@@ -149,13 +151,19 @@ public struct ProcessLauncher: ProcessLaunching {
             exited = true
             var status: Int32 = 0
             waitpid(pid, &status, 0)
-            _ = drain()
-            reader?.cancel()
+            if !readerCancelled { _ = drain() }
+            cancelReader()
             exitSource?.cancel()
             let code = (status & 0x7f) == 0 ? (status >> 8) & 0xff : 128 + (status & 0x7f)
             if code == 0 { return report(nil) }
             let text = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
             report(.scriptFailed(text.isEmpty ? "exit status \(code)" : text))
+        }
+
+        private func cancelReader() {
+            guard !readerCancelled else { return }
+            readerCancelled = true
+            reader?.cancel()
         }
 
         private func report(_ error: ActionError?) {

@@ -10,6 +10,8 @@ public final class ActionRunner: @unchecked Sendable {
     static let scriptTimeout: TimeInterval = 30
     /// Normalised delta per volume/brightness step.
     static let adjustStep = 0.06
+    /// Key presses one event may send; more means a garbage delta, which is dropped rather than carried.
+    static let maxStepsPerEvent = 50
 
     private let windows: WindowCommands
     private let events: EventPosting
@@ -71,7 +73,12 @@ public final class ActionRunner: @unchecked Sendable {
         guard delta.isFinite else { return }
         let steps: Int = lock.withLock {
             var total = (accumulated[target] ?? 0) + delta
-            let whole = Int(total / Self.adjustStep)
+            let exact = total / Self.adjustStep
+            guard abs(exact) <= Double(Self.maxStepsPerEvent) else {
+                accumulated[target] = 0
+                return exact > 0 ? Self.maxStepsPerEvent : -Self.maxStepsPerEvent
+            }
+            let whole = Int(exact)
             total -= Double(whole) * Self.adjustStep
             accumulated[target] = total
             return whole

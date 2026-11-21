@@ -204,6 +204,41 @@ import Model
         #expect(text.hasPrefix("xxx"))
     }
 
+    /// Open pipes of this process, counted without opening a descriptor. Only pipes: other suites running
+    /// in parallel open files, sockets and kqueues that stay open for the life of the process.
+    private func openPipes() -> Int {
+        (0..<getdtablesize()).filter { fd in
+            var st = stat()
+            return fstat(fd, &st) == 0 && (st.st_mode & S_IFMT) == S_IFIFO
+        }.count
+    }
+
+    private func launchConcurrently(_ n: Int) async {
+        let results = await withTaskGroup(of: (Int, ActionError?).self) { group in
+            for i in 0..<n {
+                group.addTask {
+                    (i, await withCheckedContinuation { c in
+                        ProcessLauncher().launch("/bin/sh", arguments: ["-c", "echo message-\(i) >&2; exit 1"], timeout: 10) { c.resume(returning: $0) }
+                    })
+                }
+            }
+            var all: [Int: ActionError?] = [:]
+            for await (i, err) in group { all[i] = err }
+            return all
+        }
+        #expect(results.count == n)
+        for (i, err) in results { #expect(err == .scriptFailed("message-\(i)")) }
+    }
+
+    @Test func concurrentLaunchesAreCompleteAndCloseEveryDescriptor() async {
+        let before = openPipes()
+        for _ in 0..<5 { await launchConcurrently(64) }
+        // Other tests in this suite hold pipes for a few seconds, so wait for the count to settle.
+        let end = Date().addingTimeInterval(10)
+        while openPipes() > before, Date() < end { try? await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(openPipes() <= before)
+    }
+
     @Test func liveLauncherMissingExecutable() async {
         let err = await withCheckedContinuation { c in
             ProcessLauncher().launch("/nonexistent/tool", arguments: [], timeout: 5) { c.resume(returning: $0) }
@@ -316,6 +351,18 @@ import Model
         r.adjust(.volume, delta: delta)
         r.adjust(.volume, delta: 0.07)
         #expect(f.log == ["media.0.down", "media.0.up"])
+    }
+
+    @Test(arguments: [1e20, -1e20, Double.greatestFiniteMagnitude])
+    func hugeDeltaIsClampedAndNotCarried(delta: Double) {
+        let f = Fake()
+        let r = f.runner()
+        r.adjust(.volume, delta: delta)
+        let code = delta > 0 ? 0 : 1
+        #expect(f.log.count == 2 * ActionRunner.maxStepsPerEvent)
+        #expect(f.log.allSatisfy { $0.hasPrefix("media.\(code).") })
+        r.adjust(.volume, delta: 0.04)
+        #expect(f.log.count == 2 * ActionRunner.maxStepsPerEvent)
     }
 
     @Test func targetsAreIndependent() {

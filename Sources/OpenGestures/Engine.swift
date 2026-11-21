@@ -23,7 +23,9 @@ final class Engine {
     private var running = false
     private var recorder: ((Gesture, Modifiers) -> Void)?
     private var notificationPort: IONotificationPortRef?
-    private var pendingRestart: DispatchWorkItem?
+    private lazy var rescans = RescanSchedule(
+        after: { delay, body in DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { body() } } },
+        rescan: { [unowned self] in restart() })
 
     init(report: @escaping @MainActor (_ message: String, _ kind: String) -> Void) {
         self.report = report
@@ -77,6 +79,7 @@ final class Engine {
             })
             log.info("engine started, \(MultitouchBridge.shared.deviceCount) trackpad(s)")
         } else {
+            rescans.cancel()
             MultitouchBridge.shared.stop()
             pipeline.reset()
             log.info("engine stopped")
@@ -115,18 +118,18 @@ final class Engine {
     // MARK: Device changes
 
     /// Debounced: a device that just appeared may not deliver frames yet, and wake sends several events.
+    /// Retried with backoff while no device shows up (after wake the list can come back empty).
     private func restartSoon() {
-        pendingRestart?.cancel()
-        let work = DispatchWorkItem { MainActor.assumeIsolated { self.restart() } }
-        pendingRestart = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
+        rescans.begin()
     }
 
-    private func restart() {
-        guard running else { return }
-        pipeline.reset()
-        MultitouchBridge.shared.restart()
-        log.info("engine restarted, \(MultitouchBridge.shared.deviceCount) trackpad(s)")
+    /// True when done: a trackpad was found, or the engine is stopped.
+    private func restart() -> Bool {
+        guard running else { return true }
+        MultitouchBridge.shared.restart(between: pipeline.reset)
+        let count = MultitouchBridge.shared.deviceCount
+        log.info("engine restarted, \(count) trackpad(s)")
+        return count > 0
     }
 
     /// IOKit tells us when a multitouch device (e.g. a Magic Trackpad) appears or disappears.

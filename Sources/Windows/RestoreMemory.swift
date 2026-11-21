@@ -7,9 +7,12 @@ public struct RestoreMemory<Key: Hashable> {
     public enum Outcome: Equatable { case apply, restore(CGRect) }
 
     static var tolerance: CGFloat { 4 }
+    /// Windows remembered at once; a new one past this evicts the one saved longest ago.
+    public static var capacity: Int { 50 }
 
-    private struct Entry { var original: CGRect; var requested: CGRect; var placed: CGRect }
+    private struct Entry { var original: CGRect; var requested: CGRect; var placed: CGRect; var serial: Int }
     private var entries: [Key: Entry] = [:]
+    private var nextSerial = 0
 
     public init() {}
 
@@ -25,10 +28,14 @@ public struct RestoreMemory<Key: Hashable> {
             entries[key] = nil
             return .restore(e.original)
         }
-        if let e = entries[key] {
-            entries[key] = Entry(original: e.original, requested: target, placed: e.placed)
+        if entries[key] != nil {
+            entries[key]?.requested = target
         } else if !Self.near(current, target) {
-            entries[key] = Entry(original: current, requested: target, placed: target)
+            if entries.count >= Self.capacity, let oldest = entries.min(by: { $0.value.serial < $1.value.serial })?.key {
+                entries[oldest] = nil
+            }
+            entries[key] = Entry(original: current, requested: target, placed: target, serial: nextSerial)
+            nextSerial += 1
         }
         return .apply
     }

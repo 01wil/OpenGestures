@@ -22,6 +22,19 @@ import Testing
         #expect(DisplayGeometry.adjacent(to: 2, in: frames, forward: false) == 1)
     }
 
+    @Test func pointerOnAnEdgeBelongsToThatDisplay() {
+        #expect(DisplayGeometry.display(containing: CGPoint(x: 700, y: 900), in: frames) == 1)  // top row
+        #expect(DisplayGeometry.display(containing: CGPoint(x: 0, y: 0), in: frames) == 1)
+        #expect(DisplayGeometry.display(containing: CGPoint(x: 3840, y: 500), in: frames) == 0)  // right edge
+        #expect(DisplayGeometry.display(containing: CGPoint(x: 2000, y: -1080), in: frames) == 2)
+    }
+
+    @Test func pointerOutsideEveryDisplayGoesToTheNearest() {
+        #expect(DisplayGeometry.display(containing: CGPoint(x: 1600, y: 950), in: frames) == 1)
+        #expect(DisplayGeometry.display(containing: CGPoint(x: 1700, y: 950), in: frames) == 0)
+        #expect(DisplayGeometry.display(containing: .zero, in: []) == nil)
+    }
+
     @Test func singleOrInvalidDisplayHasNoNeighbour() {
         #expect(DisplayGeometry.adjacent(to: 0, in: [frames[0]], forward: true) == nil)
         #expect(DisplayGeometry.adjacent(to: 5, in: frames, forward: true) == nil)
