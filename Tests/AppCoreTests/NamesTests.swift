@@ -36,7 +36,8 @@ import Testing
     }
 
     @Test func actionSummaries() {
-        #expect(Action.previousWindow.summary() == "Previous window")
+        #expect(Action.previousWindow().summary() == "Previous window")
+        #expect(Action.nextWindow(preview: true).summary() == "Next window, with preview")
         #expect(Action.nextDisplay.summary() == "Move window to next display")
         #expect(Action.windowLayout(.leftHalf).summary() == "Left half")
         #expect(Action.keyboardShortcut(KeyCombo(key: "t", modifiers: .command)).summary() == "Press ⌘T")
@@ -102,6 +103,6 @@ import Testing
         #expect(Action.openURL("obsidian://open").normalized == .openURL("obsidian://open"))
         #expect(Action.openURL("not a url").missingField == "Enter a valid URL, e.g. https://example.com")
         #expect(Action.shortcut(name: " Focus ").normalized == .shortcut(name: "Focus"))
-        #expect(Action.nextWindow.normalized == .nextWindow)
+        #expect(Action.nextWindow().normalized == .nextWindow())
     }
 }

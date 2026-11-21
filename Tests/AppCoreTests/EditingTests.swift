@@ -23,15 +23,15 @@ import Testing
 }
 
 @Suite struct EditingTests {
-    let a = Binding(gesture: .tap(fingers: 3), action: .nextWindow)
-    let b = Binding(gesture: .tap(fingers: 4), apps: ["com.apple.Safari"], action: .previousWindow)
+    let a = Binding(gesture: .tap(fingers: 3), action: .nextWindow())
+    let b = Binding(gesture: .tap(fingers: 4), apps: ["com.apple.Safari"], action: .previousWindow())
     let c = Binding(gesture: .tap(fingers: 5), apps: ["com.apple.Safari"], action: .nextDisplay)
     let d = Binding(gesture: .tap(fingers: 2), apps: ["com.apple.mail", "com.apple.Notes"], action: .nextDisplay)
 
     @Test func upsertReplacesOrAppends() {
         var config = Configuration(bindings: [a])
         var changed = a
-        changed.action = .previousWindow
+        changed.action = .previousWindow()
         config.upsert(changed)
         #expect(config.bindings == [changed])
         config.upsert(b)

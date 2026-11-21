@@ -17,9 +17,14 @@ public final class GesturePipeline: @unchecked Sendable {
         self.tuning = tuning
     }
 
-    public func setSensitivity(_ sensitivity: Double) {
+    public func setSensitivity(_ sensitivity: Double) { update { $0.sensitivity = sensitivity } }
+
+    /// On while any binding shows the switcher preview, which needs the movement after a swipe fired.
+    public func setFollowsSwipes(_ follows: Bool) { update { $0.followsSwipes = follows } }
+
+    private func update(_ change: (inout Tuning) -> Void) {
         lock.withLock {
-            tuning.sensitivity = sensitivity
+            change(&tuning)
             for r in recognizers.values { r.tuning = tuning }
         }
     }
@@ -42,17 +47,24 @@ public final class GesturePipeline: @unchecked Sendable {
 public enum Dispatch: Equatable, Sendable {
     case run(Action)
     case adjust(AdjustTarget, Double)
+    /// Open the window switcher; `older` for "previous window".
+    case switcher(older: Bool, swipe: Gesture.Direction)
 }
 
 public enum Dispatcher {
     /// What to do for a recognised gesture. A continuous event only drives an adjust binding and a discrete
-    /// one never does; the editor warns about such bindings, here they are simply ignored.
+    /// one never does; the editor warns about such bindings, here they are simply ignored. A window action
+    /// with preview opens the switcher when a swipe fired it; anything else has no movement to follow.
+    /// Follow-up events of a swipe (`.changed`, `.ended`) belong to the switcher and never dispatch.
     public static func dispatch(_ event: GestureEvent, bindings: [Binding], modifiers: Modifiers, app: String?) -> Dispatch? {
-        guard let binding = BindingResolver.resolve(bindings, gesture: event.gesture, modifiers: modifiers, app: app) else { return nil }
-        switch (binding.action, event.delta) {
-        case let (.adjust(target), delta?): return .adjust(target, delta)
-        case (.adjust, nil), (_, _?): return nil
-        case let (action, nil): return .run(action)
+        guard event.phase == .began,
+              let binding = BindingResolver.resolve(bindings, gesture: event.gesture, modifiers: modifiers, app: app) else { return nil }
+        switch (binding.action, event.delta, event.gesture) {
+        case let (.adjust(target), delta?, _): return .adjust(target, delta)
+        case (.adjust, nil, _), (_, _?, _): return nil
+        case let (.previousWindow(true), nil, .swipe(_, direction)): return .switcher(older: true, swipe: direction)
+        case let (.nextWindow(true), nil, .swipe(_, direction)): return .switcher(older: false, swipe: direction)
+        case let (action, nil, _): return .run(action)
         }
     }
 }

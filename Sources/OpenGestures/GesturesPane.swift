@@ -102,7 +102,7 @@ struct GesturesPane: View {
     }
 
     private func add() {
-        editing = Editing(binding: GestureBinding(gesture: .swipe(fingers: 3, direction: .up), action: .nextWindow), isNew: true)
+        editing = Editing(binding: GestureBinding(gesture: .swipe(fingers: 3, direction: .up), action: .nextWindow()), isNew: true)
     }
 }
 

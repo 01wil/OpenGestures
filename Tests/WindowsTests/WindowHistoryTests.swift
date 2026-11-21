@@ -24,6 +24,16 @@ import Testing
         #expect(h.next(now: 10) == 1)
     }
 
+    /// The switcher lists windows mid-flick: the walked-to window must already be first.
+    @Test func settleCommitsAQuickFlickSession() {
+        var h = history([1, 2, 3, 4])   // order 4,3,2,1
+        _ = h.previous(now: 10)
+        _ = h.previous(now: 10.2)
+        h.settle()
+        #expect(h.order == [2, 1, 4, 3])
+        #expect(h.previous(now: 10.3) == 1)
+    }
+
     @Test func tooFewWindowsGivesNil() {
         var h = history([1])
         #expect(h.previous(now: 10) == nil)

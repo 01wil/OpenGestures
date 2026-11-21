@@ -85,7 +85,12 @@ enum AX {
 
 /// WindowServer queries (public API).
 enum WindowList {
-    struct Item { let id: CGWindowID; let pid: pid_t }
+    struct Item {
+        let id: CGWindowID
+        let pid: pid_t
+        /// Only filled with Screen Recording permission.
+        let title: String?
+    }
 
     /// Normal-layer windows, front to back when `onScreenOnly`. `.optionAll` also lists other Spaces
     /// and minimised windows. Tiny windows (status items, shadows) are ignored.
@@ -98,7 +103,7 @@ enum WindowList {
                   (w[kCGWindowLayer as String] as? Int) == 0,
                   let b = w[kCGWindowBounds as String] as? [String: CGFloat],
                   (b["Width"] ?? 0) >= 50, (b["Height"] ?? 0) >= 50 else { return nil }
-            return Item(id: id, pid: pid)
+            return Item(id: id, pid: pid, title: w[kCGWindowName as String] as? String)
         }
     }
 }

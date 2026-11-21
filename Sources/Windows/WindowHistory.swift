@@ -43,6 +43,11 @@ public struct WindowHistory<ID: Hashable> {
         if order.count != before { session = nil }
     }
 
+    /// Commits a running quick-flick session now, so `order` starts with the window it walked to.
+    public mutating func settle() {
+        if let s = session { commit(s) }
+    }
+
     public mutating func previous(now: TimeInterval) -> ID? { step(now, by: 1) }
     public mutating func next(now: TimeInterval) -> ID? { step(now, by: -1) }
 

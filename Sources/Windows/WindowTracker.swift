@@ -38,6 +38,14 @@ public final class WindowTracker {
     func previous() -> (id: CGWindowID, pid: pid_t)? { step { $0.previous(now: $1) } }
     func next() -> (id: CGWindowID, pid: pid_t)? { step { $0.next(now: $1) } }
 
+    /// Every known window that still exists, most recently used first.
+    func ordered() -> [WindowList.Item] {
+        let alive = Dictionary(WindowList.items(onScreenOnly: false).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        history.retain(alive: Set(alive.keys))
+        history.settle()
+        return history.order.compactMap { alive[$0] }
+    }
+
     /// The most recently used window that still exists, if any.
     func current() -> (id: CGWindowID, pid: pid_t)? { step { h, _ in h.order.first } }
 

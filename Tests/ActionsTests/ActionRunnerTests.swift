@@ -172,7 +172,7 @@ import Model
     @Test func windowActionsDelegate() {
         let f = Fake()
         let r = f.runner()
-        r.run(.previousWindow); r.run(.nextWindow); r.run(.previousDisplay); r.run(.nextDisplay)
+        r.run(.previousWindow()); r.run(.nextWindow()); r.run(.previousDisplay); r.run(.nextDisplay)
         r.run(.cursorToNextDisplay); r.run(.windowLayout(.leftHalf))
         #expect(f.log == ["prevWindow", "nextWindow", "prevDisplay", "nextDisplay", "cursorNext", "layout.leftHalf"])
     }
@@ -187,7 +187,7 @@ import Model
             func moveCursorToNextDisplay() throws {}
         }
         let f = Fake()
-        ActionRunner(windows: Boom(), events: f, processes: f, workspace: f, onError: { f.report($0) }).run(.previousWindow)
+        ActionRunner(windows: Boom(), events: f, processes: f, workspace: f, onError: { f.report($0) }).run(.previousWindow())
         #expect(f.errors == [.failed("no ax")])
     }
 
