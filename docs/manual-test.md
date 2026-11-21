@@ -4,7 +4,7 @@ The parts `swift test` cannot reach. Run it on macOS 27 (the supported and teste
 
 ## Build and first run
 
-- [ ] From a fresh clone, follow only the README: `xcode-select --install` (if needed), then `./scripts/make-signing-cert.sh` (enter your login password when asked, and again at the first build when `codesign` asks for the key, then click Always Allow), `./scripts/build-app.sh` and `./scripts/install.sh`. OpenGestures.app appears in `~/Applications` and opens.
+- [ ] From a fresh clone, follow only the README: `xcode-select --install` (if needed), then (optional) `./scripts/make-signing-cert.sh` (enter your login password when asked, and again at each build when `codesign` asks for the key, then click Allow, not Always Allow), `./scripts/build-app.sh` and `./scripts/install.sh`. OpenGestures.app appears in `~/Applications` and opens.
 - [ ] The first-run screen explains Accessibility in one sentence and has a button that opens System Settings › Privacy & Security › Accessibility.
 - [ ] Grant the permission. The screen changes to granted without restarting the app.
 - [ ] A menu bar icon appears. Its menu has enable/pause, Settings… and Quit.
