@@ -4,6 +4,7 @@
 # the app if the Trash is not writable. Every check runs before a running copy is quit, and if
 # anything fails after that, the old copy is put back and relaunched.
 set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin; export PATH
 cd "$(dirname "$0")/.."
 
 src=build/OpenGestures.app

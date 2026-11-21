@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Regenerates Resources/AppIcon-1024.png and Resources/AppIcon.icns.
 set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin; export PATH
 cd "$(dirname "$0")/.."
 swift scripts/make-icon.swift
 tmp=$(mktemp -d)

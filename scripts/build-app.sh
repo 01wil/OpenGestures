@@ -3,6 +3,7 @@
 # Builds build/OpenGestures.app. Signs with $OG_SIGN_IDENTITY if set, else with a local
 # "OpenGestures Local Dev" certificate if one exists (scripts/make-signing-cert.sh), else ad-hoc.
 set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin; export PATH
 cd "$(dirname "$0")/.."
 
 version=$(cat VERSION)
@@ -46,7 +47,8 @@ fi
 identity=${OG_SIGN_IDENTITY:--}
 # Extended attributes (e.g. Finder info on copied resources) make codesign refuse the bundle.
 xattr -cr "$app"
-codesign --force -s "$identity" "$app"
+# Hardened runtime. No entitlements: the app only calls Apple-signed frameworks and runs scripts out of process.
+codesign --force --options runtime --timestamp=none -s "$identity" "$app"
 # Keep the build copy out of Launchpad and "Open With"; only the installed app should show up.
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$(pwd)/$app" 2>/dev/null || true
 

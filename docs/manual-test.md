@@ -93,6 +93,14 @@ Add a binding for each in the settings window, with any gesture you like, and fi
 - [ ] Run `./scripts/make-signing-cert.sh` a second time. It reports the certificate exists and creates no duplicate.
 - [ ] Run `./scripts/install.sh` while the app is running. It quits, is replaced, and relaunches.
 
+## Hardened runtime and uninstall
+
+- [ ] `codesign -dvv build/OpenGestures.app` shows `flags=0x10000(runtime)`, and the built app starts and logs "engine started".
+- [ ] Each `build-app.sh` run with the local certificate asks for your login password. Click Allow.
+- [ ] `./scripts/remove-signing-cert.sh` removes the certificate; run it twice, the second run says nothing is left.
+- [ ] `./scripts/uninstall.sh` quits the app, resets Accessibility, moves the app to the Trash, and asks before deleting the config folder and the certificate. Answering N keeps both.
+- [ ] After the uninstall, OpenGestures is gone from the Accessibility list and from the login items.
+
 ## Idle load
 
 - [ ] With no fingers on the trackpad, watch OpenGestures in Activity Monitor for one minute. CPU stays below 1%.

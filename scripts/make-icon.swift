@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Renders Resources/AppIcon-1024.png, Resources/AppIcon.icns and the notes/design copies.
+// Renders Resources/AppIcon-1024.png (and the iconset that make-icon.sh turns into AppIcon.icns).
 // Run from the repo root: swift scripts/make-icon.swift
 import AppKit
 

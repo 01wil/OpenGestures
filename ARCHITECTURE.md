@@ -74,3 +74,7 @@ None of these are covered by Apple's compatibility promises. Each can change or 
 Symbols found with `dlsym` degrade to a no-op. The linked MultitouchSupport framework does not, because the app will not launch without it.
 
 The public APIs involved are Accessibility (needs the user's permission), CGEvent for posting keys, clicks and media keys, and reading the trackpad preferences domains to detect conflicts.
+
+## Security model
+
+The config file is trusted input. A `shellScript` or `appleScript` action runs as the user, and the app holds the Accessibility permission, so whoever can write `config.json` can run code as you. The app does not sandbox these scripts; it runs them out of process with a timeout. The build is signed with the hardened runtime and no entitlements. The app makes no network connections. See [SECURITY.md](SECURITY.md).

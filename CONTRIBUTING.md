@@ -11,7 +11,7 @@ swift build
 swift test
 ```
 
-`swift test` runs without a trackpad and must pass with 0 failures. To build the app bundle, use `./scripts/build-app.sh`, and `./scripts/install.sh` to install it. See the README for signing.
+`swift test` runs without a trackpad and must pass with 0 failures. To build the app bundle, use `./scripts/build-app.sh`, and `./scripts/install.sh` to install it. `./scripts/uninstall.sh` removes it again. See the README for signing and security.
 
 ## Tests first
 

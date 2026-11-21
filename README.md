@@ -99,7 +99,7 @@ Open OpenGestures from `~/Applications` and click Allow Access when asked, then 
 
 ### Why the signing certificate
 
-macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain (macOS asks for your password to trust it, and at the first build `codesign` asks once more: "codesign wants to access key ...". Enter your login password and click Always Allow), and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates.
+macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain, valid for 5 years, and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates. macOS asks for your login password to trust the certificate, and again on every build ("codesign wants to access key ..."). Click Allow, not Always Allow, so nothing else can sign with the key without asking. The app is signed with the hardened runtime.
 
 Without the certificate the build is ad-hoc signed, and an ad-hoc signature changes with every build. The switch in System Settings then still looks on, but macOS no longer honours it and no gesture action runs. To fix that, remove OpenGestures from the Accessibility list with the minus button and add it again. You can also sign with any other identity: `OG_SIGN_IDENTITY="Your Identity" ./scripts/build-app.sh`.
 
@@ -200,6 +200,23 @@ Other actions look like this:
 ## Conflicts with macOS gestures
 
 macOS uses some of the same gestures. By default, 4-finger swipes switch between Spaces and full-screen apps, which clashes with the default bindings. macOS also reacts to 5-finger swipes when its 4-finger swipes are on, so a 5-finger binding clashes too. Its 5-finger pinch for Launchpad and Show Desktop can trip on any 5-finger gesture. When an enabled binding overlaps a macOS gesture that is switched on, OpenGestures shows a warning that says which one, with a button that opens Trackpad settings. The setting to change is in System Settings › Trackpad › More Gestures. OpenGestures reads those settings and never changes them.
+
+## Uninstall
+
+```
+./scripts/uninstall.sh
+```
+
+It quits the app, resets its Accessibility permission, moves `~/Applications/OpenGestures.app` to the Trash and unregisters it from Launch Services. Removing the app also removes its login item. The script asks before it deletes `~/.config/opengestures` and before it removes the signing certificate. `--all` answers yes to both. It touches nothing else. To remove only the certificate, run `./scripts/remove-signing-cert.sh`.
+
+## Security
+
+- `config.json` is executable. A `shellScript` or `appleScript` action runs with your user rights, and the app's Accessibility permission comes along for the ride. Keep the file at mode 0600 (`chmod 600 ~/.config/opengestures/config.json`), and read the diff before you pull a shared or dotfiles config that changes it.
+- The "OpenGestures Local Dev" certificate is self-signed and trusted for code signing for your user only. It lives in your login keychain. Anyone who can use its key can sign code that macOS treats as OpenGestures, which is why each build asks for your password and why you should click Allow, not Always Allow. `./scripts/remove-signing-cert.sh` removes the trust and deletes the certificate and key.
+- OpenGestures makes no network connections and sends no telemetry.
+- It reads touches through Apple's private MultitouchSupport framework. Private APIs can change in any macOS update.
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Privacy
 
