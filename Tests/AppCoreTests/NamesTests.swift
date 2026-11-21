@@ -70,12 +70,38 @@ import Testing
         #expect(ActionError.failed("No other display.").message == "No other display.")
     }
 
-    @Test func incompleteActionsCannotBeSaved() {
-        #expect(!Action.openApp(bundleID: "").isComplete)
-        #expect(!Action.keyboardShortcut(KeyCombo(key: "")).isComplete)
-        #expect(!Action.shellScript("  ").isComplete)
-        #expect(Action.openURL("https://example.com").isComplete)
-        #expect(!Action.openURL("example").isComplete)
-        #expect(Action.nextWindow.isComplete)
+    @Test func everyKindIsSavableOnceItsFieldIsFilled() {
+        let filled: [ActionKind: Action] = [
+            .keyboardShortcut: .keyboardShortcut(KeyCombo(key: "t", modifiers: .command)),
+            .openApp: .openApp(bundleID: "com.apple.Safari"),
+            .openURL: .openURL("https://example.com"),
+            .openFile: .openFile(path: "~/Notes.txt"),
+            .shellScript: .shellScript("say hi"),
+            .appleScript: .appleScript("beep"),
+            .shortcut: .shortcut(name: "Focus"),
+        ]
+        for kind in ActionKind.allCases {
+            let action = filled[kind] ?? kind.defaultAction
+            #expect(action.missingField == nil, "\(kind)")
+        }
+    }
+
+    @Test func emptyRequiredFieldsExplainWhatIsMissing() {
+        #expect(Action.keyboardShortcut(KeyCombo(key: "")).missingField == "Record a shortcut")
+        #expect(Action.openApp(bundleID: "").missingField == "Choose an app")
+        #expect(Action.openURL(" ").missingField == "Enter a URL")
+        #expect(Action.openFile(path: "").missingField == "Choose a file")
+        #expect(Action.shellScript("  ").missingField == "Enter a script")
+        #expect(Action.appleScript("").missingField == "Enter a script")
+        #expect(Action.shortcut(name: "").missingField == "Enter the shortcut’s name")
+    }
+
+    @Test func urlWithoutSchemeIsSavedAsHTTPS() {
+        #expect(Action.openURL("example.com").missingField == nil)
+        #expect(Action.openURL(" example.com/a ").normalized == .openURL("https://example.com/a"))
+        #expect(Action.openURL("obsidian://open").normalized == .openURL("obsidian://open"))
+        #expect(Action.openURL("not a url").missingField == "Enter a valid URL, e.g. https://example.com")
+        #expect(Action.shortcut(name: " Focus ").normalized == .shortcut(name: "Focus"))
+        #expect(Action.nextWindow.normalized == .nextWindow)
     }
 }

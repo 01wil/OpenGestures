@@ -1,5 +1,7 @@
 # OpenGestures
 
+<p align="center"><img src="Resources/AppIcon-1024.png" width="128" alt="OpenGestures icon"></p>
+
 Free, open-source gestures for your Mac's trackpad, built-in or Magic Trackpad, mapped to whatever you want.
 
 OpenGestures is a small menu bar app. You pick a gesture, optionally hold modifier keys, optionally limit it to one app, and choose what it does. Everything lives in one readable config file that you can keep in git.
@@ -75,33 +77,23 @@ Install the Command Line Tools if you do not have them:
 xcode-select --install
 ```
 
-Clone the repository, build the app and install it to `~/Applications`:
+Clone the repository, create a local signing certificate (once), build the app and install it to `~/Applications`:
 
 ```
 git clone https://github.com/01wil/OpenGestures.git
 cd OpenGestures
+./scripts/make-signing-cert.sh
 ./scripts/build-app.sh
 ./scripts/install.sh
 ```
 
-Open OpenGestures from `~/Applications`, then grant Accessibility access when asked. The first-run screen links straight to System Settings › Privacy & Security › Accessibility and shows the status live, so no restart is needed.
+Open OpenGestures from `~/Applications` and click Allow Access when asked, then turn OpenGestures on in System Settings › Privacy & Security › Accessibility. The status in the app updates live, so no restart is needed.
 
-### Rebuilding and the Accessibility grant
+### Why the signing certificate
 
-The build is ad-hoc signed by default. macOS ties the Accessibility grant to the app's signature, and an ad-hoc signature changes with every build, so after a rebuild the gestures may stop working. If that happens, open System Settings › Privacy & Security › Accessibility, remove OpenGestures with the minus button, and add it again.
+macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain (macOS asks for your password once), and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates.
 
-To avoid this, sign with a stable local certificate. You make it once.
-
-1. Open Keychain Access and choose Keychain Access › Certificate Assistant › Create a Certificate.
-2. Name it, for example `OpenGestures Local`. Set Identity Type to Self Signed Root and Certificate Type to Code Signing, then create it.
-3. Build with the certificate's name:
-
-```
-OG_SIGN_IDENTITY="OpenGestures Local" ./scripts/build-app.sh
-./scripts/install.sh
-```
-
-Grant Accessibility once more after the first build with the certificate. Later rebuilds keep the grant.
+Without the certificate the build is ad-hoc signed, and an ad-hoc signature changes with every build. The switch in System Settings then still looks on, but macOS no longer honours it and no gesture action runs. To fix that, remove OpenGestures from the Accessibility list with the minus button and add it again. You can also sign with any other identity: `OG_SIGN_IDENTITY="Your Identity" ./scripts/build-app.sh`.
 
 ## Configuration
 

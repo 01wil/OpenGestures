@@ -35,19 +35,17 @@ struct GeneralPane: View {
                     .foregroundStyle(.secondary)
             }
             Section {
-                DisclosureGroup("Advanced") {
-                    Slider(value: .init(get: { precision ?? 1 - model.config.settings.sensitivity }, set: { precision = $0 }),
-                           in: 0...1) {
-                        Text("Sensitivity")
-                    } minimumValueLabel: {
-                        Text("Easy")
-                    } maximumValueLabel: {
-                        Text("Precise")
-                    } onEditingChanged: { editing in
-                        guard !editing, let p = precision else { return }
-                        model.update { $0.settings.sensitivity = 1 - p }
-                        precision = nil
-                    }
+                Slider(value: .init(get: { precision ?? 1 - model.config.settings.sensitivity }, set: { precision = $0 }),
+                       in: 0...1) {
+                    Text("Sensitivity")
+                } minimumValueLabel: {
+                    Text("Easy")
+                } maximumValueLabel: {
+                    Text("Precise")
+                } onEditingChanged: { editing in
+                    guard !editing, let p = precision else { return }
+                    model.update { $0.settings.sensitivity = 1 - p }
+                    precision = nil
                 }
             }
         }
@@ -64,11 +62,12 @@ struct GeneralPane: View {
     }
 }
 
-/// Live Accessibility status; polls once a second while on screen because macOS sends no change notification.
+/// Live Accessibility status; polls once a second while on screen as a backup to the change notification.
 struct AccessibilityStatus: View {
-    @SwiftUI.Binding var granted: Bool
+    @Environment(AppModel.self) private var model
 
     var body: some View {
+        let granted = model.accessibilityGranted
         Group {
             if granted {
                 Label("Granted", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
@@ -79,7 +78,7 @@ struct AccessibilityStatus: View {
         .animation(Design.stateChange, value: granted)
         .task {
             while !Task.isCancelled {
-                granted = System.accessibilityGranted
+                model.refreshAccessibility()
                 try? await Task.sleep(for: .seconds(1))
             }
         }
@@ -87,20 +86,21 @@ struct AccessibilityStatus: View {
 }
 
 struct PermissionsPane: View {
-    @ViewState private var granted = System.accessibilityGranted
+    @Environment(AppModel.self) private var model
 
     var body: some View {
+        let granted = model.accessibilityGranted
         Form {
             Section {
                 LabeledContent {
-                    AccessibilityStatus(granted: $granted)
+                    AccessibilityStatus()
                 } label: {
                     Text("Accessibility")
                     Text("Lets OpenGestures switch, move and resize windows and send keys and clicks.")
                 }
                 if !granted {
                     LabeledContent("") {
-                        Button("Open System Settings…", action: System.requestAccessibility)
+                        Button("Allow Access…", action: System.requestAccessibility)
                     }
                 }
             } footer: {

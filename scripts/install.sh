@@ -13,5 +13,9 @@ mkdir -p "$HOME/Applications"
 if [ -e "$dest" ]; then
     mv "$dest" "$HOME/.Trash/OpenGestures-$(date +%Y%m%d-%H%M%S).app"
 fi
-cp -R "$src" "$dest"
+ditto "$src" "$dest"
+# Folders synced by iCloud (e.g. ~/Desktop) tag files with extended attributes that make the
+# signature check fail; the installed copy must not carry them.
+xattr -cr "$dest"
+codesign --verify --strict "$dest"
 echo "Installed $dest"

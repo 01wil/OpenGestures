@@ -32,7 +32,7 @@ struct BindingEditor: View {
         b.gesture = draft.gesture
         b.modifiers = modifiers
         b.apps = specificApps ? apps : []
-        b.action = action
+        b.action = action.normalized
         b.name = nil
         return b
     }
@@ -88,6 +88,7 @@ struct BindingEditor: View {
                             Divider()
                             Button("Choose from Applications…") { apps += System.chooseApps(multiple: true).filter { !apps.contains($0) } }
                         }
+                        if apps.isEmpty { Hint("Add at least one app") }
                     }
                 }
                 Section {
@@ -99,6 +100,7 @@ struct BindingEditor: View {
                         }
                     }
                     ActionFields(action: $action)
+                    if let hint = action.missingField { Hint(hint) }
                 }
                 NotesSection(notes: Notes(others + [result], only: result.id))
             }
@@ -118,7 +120,8 @@ struct BindingEditor: View {
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(!action.isComplete || (specificApps && apps.isEmpty))
+                .buttonStyle(.borderedProminent)
+                .disabled(action.missingField != nil || (specificApps && apps.isEmpty))
             }
             .padding()
         }
@@ -222,6 +225,16 @@ private struct ActionFields: View {
         case .previousWindow, .nextWindow, .previousDisplay, .nextDisplay, .cursorToNextDisplay:
             EmptyView()
         }
+    }
+}
+
+/// Why Save is unavailable, next to the field that needs filling.
+private struct Hint: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Label(text, systemImage: "info.circle").foregroundStyle(.secondary)
     }
 }
 

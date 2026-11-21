@@ -7,10 +7,10 @@ import SwiftUI
 struct OnboardingView: View {
     enum Step { case welcome, permission, conflict }
 
+    @Environment(AppModel.self) private var model
     let done: () -> Void
     private let steps: [Step]
     @ViewState private var index = 0
-    @ViewState private var granted = System.accessibilityGranted
 
     init(done: @escaping () -> Void) {
         self.done = done
@@ -72,8 +72,10 @@ struct OnboardingView: View {
             header("lock", "Allow Accessibility")
             Text("OpenGestures needs Accessibility access to switch and move windows and to send keys.")
                 .foregroundStyle(.secondary)
-            AccessibilityStatus(granted: $granted)
-            Button("Open System Settings…", action: System.requestAccessibility)
+            AccessibilityStatus()
+            if !model.accessibilityGranted {
+                Button("Allow Access…", action: System.requestAccessibility)
+            }
         }
         .multilineTextAlignment(.center)
     }

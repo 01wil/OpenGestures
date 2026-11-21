@@ -1,17 +1,20 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Builds build/OpenGestures.app. Signs with $OG_SIGN_IDENTITY if set, else ad-hoc.
+# Builds build/OpenGestures.app. Signs with $OG_SIGN_IDENTITY if set, else with a local
+# "OpenGestures Local Dev" certificate if one exists (scripts/make-signing-cert.sh), else ad-hoc.
 set -eu
 cd "$(dirname "$0")/.."
 
 version=$(cat VERSION)
-swift build -c release --product OpenGestures
-bin=$(swift build -c release --show-bin-path)
+# A separate scratch path: sharing .build with debug `swift test` breaks the Testing macro plugin lookup.
+swift build -c release --scratch-path .build-release --product OpenGestures
+bin=$(swift build -c release --scratch-path .build-release --show-bin-path)
 
 app=build/OpenGestures.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/OpenGestures" "$app/Contents/MacOS/OpenGestures"
+cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -22,6 +25,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key><string>io.github.opengestures.OpenGestures</string>
     <key>CFBundleName</key><string>OpenGestures</string>
     <key>CFBundleDisplayName</key><string>OpenGestures</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundleIconName</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$version</string>
     <key>CFBundleVersion</key><string>$version</string>
@@ -35,11 +40,17 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+if [ -z "${OG_SIGN_IDENTITY:-}" ] && security find-identity -v -p codesigning 2>/dev/null | grep -q '"OpenGestures Local Dev"'; then
+    OG_SIGN_IDENTITY="OpenGestures Local Dev"
+fi
 identity=${OG_SIGN_IDENTITY:--}
+# Extended attributes (e.g. Finder info on copied resources) make codesign refuse the bundle.
+xattr -cr "$app"
 codesign --force --deep -s "$identity" "$app"
 
 echo "Built $(pwd)/$app ($version, signed with ${OG_SIGN_IDENTITY:-ad-hoc identity})"
 if [ -z "${OG_SIGN_IDENTITY:-}" ]; then
-    echo "Note: ad-hoc builds get a new signature on every rebuild, so macOS may ask for Accessibility again."
+    echo "Note: ad-hoc builds get a new signature on every rebuild, so macOS stops honouring the Accessibility grant."
+    echo "Run scripts/make-signing-cert.sh once to sign with a stable local certificate instead."
     echo "Turn OpenGestures off and on in System Settings > Privacy & Security > Accessibility if gestures stop moving windows."
 fi

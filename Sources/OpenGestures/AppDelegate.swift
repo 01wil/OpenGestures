@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let window = NSWindow(contentViewController: NSHostingController(rootView: OnboardingView { [weak self] in
             self?.onboarding?.close()
             self?.onboarding = nil
-        }))
+        }.environment(model)))
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden

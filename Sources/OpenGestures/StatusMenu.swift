@@ -32,7 +32,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         if model.configError != nil {
             menu.addItem(entry("Config File Has an Error…", #selector(settings)))
         }
-        if !System.accessibilityGranted {
+        model.refreshAccessibility()
+        if !model.accessibilityGranted {
             menu.addItem(entry("Allow Accessibility Access…", #selector(permissions)))
         }
         if menu.numberOfItems > 0 { menu.addItem(.separator()) }

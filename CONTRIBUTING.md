@@ -41,4 +41,6 @@ Before a pull request, run `swift test` and, if you touched behavior that tests 
 
 ## Troubleshooting
 
-If `swift test` fails with "plugin for module 'TestingMacros' not found", the build cache is stale. Run `swift test` once more, or move `.build` out of the way and rebuild.
+With only the Command Line Tools installed, the toolchain sometimes loses the Swift Testing macro plugin ("plugin for module 'TestingMacros' not found"). Package.swift passes the plugin path to the test targets to prevent it. If you still see it, move `.build` out of the way and rebuild.
+
+If the app's gestures stop doing anything after a rebuild, the Accessibility grant no longer matches the signature. Run `scripts/make-signing-cert.sh` once and rebuild; see the README.

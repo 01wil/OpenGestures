@@ -38,6 +38,11 @@ final class Engine {
         updateRunning()
     }
 
+    /// Accessibility was just granted: the window tracker needs AX to follow focus.
+    func accessibilityGranted() {
+        windows.restart()
+    }
+
     func configure(bindings: [Binding], enabled: Bool, sensitivity: Double) {
         self.bindings = bindings
         self.enabled = enabled
@@ -70,9 +75,11 @@ final class Engine {
                     MainActor.assumeIsolated { self.handle(events, modifiers: modifiers) }
                 }
             })
+            log.info("engine started, \(MultitouchBridge.shared.deviceCount) trackpad(s)")
         } else {
             MultitouchBridge.shared.stop()
             pipeline.reset()
+            log.info("engine stopped")
         }
     }
 
@@ -86,7 +93,12 @@ final class Engine {
             }
             guard enabled else { return }
             let app = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-            switch Dispatcher.dispatch(event, bindings: bindings, modifiers: modifiers, app: app) {
+            let dispatch = Dispatcher.dispatch(event, bindings: bindings, modifiers: modifiers, app: app)
+            // Sliding gestures send a stream of deltas; log only the discrete ones.
+            if event.delta == nil {
+                log.info("gesture \(event.gesture.id, privacy: .public) → \(dispatch.map { "\($0)" } ?? "no binding", privacy: .public)")
+            }
+            switch dispatch {
             case let .run(action)?: runner.run(action)
             case let .adjust(target, delta)?: runner.adjust(target, delta: delta)
             case nil: break
@@ -108,6 +120,7 @@ final class Engine {
         guard running else { return }
         pipeline.reset()
         MultitouchBridge.shared.restart()
+        log.info("engine restarted, \(MultitouchBridge.shared.deviceCount) trackpad(s)")
     }
 
     /// IOKit tells us when a multitouch device (e.g. a Magic Trackpad) appears or disappears.

@@ -2,7 +2,7 @@
 
 import AppCore
 import Config
-import Foundation
+import AppKit
 import Model
 import Observation
 import ServiceManagement
@@ -21,6 +21,7 @@ final class AppModel {
     /// The last action that failed, until the menu has shown it.
     var notice: String?
     private(set) var isFirstRun = false
+    private(set) var accessibilityGranted = System.accessibilityGranted
     @ObservationIgnored private(set) lazy var engine = Engine { [weak self] message in self?.report(message) }
     @ObservationIgnored private var watcher: ConfigWatcher?
 
@@ -38,6 +39,23 @@ final class AppModel {
             Task { @MainActor in self?.reloaded(result) }
         }
         engine.start()
+        log.info("accessibility \(self.accessibilityGranted ? "granted" : "not granted", privacy: .public)")
+        // Posted when the Accessibility list changes; the new state is readable a moment later.
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.accessibility.api"), object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(500))
+                self?.refreshAccessibility()
+            }
+        }
+    }
+
+    /// Picks up a grant or revoke; when access arrives the engine starts using it without a relaunch.
+    func refreshAccessibility() {
+        let granted = System.accessibilityGranted
+        guard granted != accessibilityGranted else { return }
+        accessibilityGranted = granted
+        log.info("accessibility \(granted ? "granted" : "revoked", privacy: .public)")
+        if granted { engine.accessibilityGranted() }
     }
 
     func update(_ change: (inout Configuration) -> Void) {

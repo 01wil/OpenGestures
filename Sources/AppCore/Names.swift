@@ -245,17 +245,33 @@ extension ActionError {
 }
 
 extension Action {
-    /// False while a required field is still empty, so the editor cannot save it.
-    public var isComplete: Bool {
-        func filled(_ s: String) -> Bool { !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        return switch self {
-        case let .keyboardShortcut(k): filled(k.key)
-        case let .openApp(id): filled(id)
-        case let .openURL(s): URL(string: s)?.scheme != nil
-        case let .openFile(p): filled(p)
-        case let .shellScript(s), let .appleScript(s): filled(s)
-        case let .shortcut(n): filled(n)
-        default: true
+    /// What the editor saves: text fields trimmed, and a URL typed without a scheme opened over https.
+    public var normalized: Action {
+        func trim(_ s: String) -> String { s.trimmingCharacters(in: .whitespacesAndNewlines) }
+        switch self {
+        case let .openURL(s):
+            let s = trim(s)
+            guard !s.isEmpty, URL(string: s)?.scheme == nil, !s.contains(where: \.isWhitespace) else { return .openURL(s) }
+            return .openURL("https://" + s)
+        case let .shortcut(n): return .shortcut(name: trim(n))
+        case let .openApp(id): return .openApp(bundleID: trim(id))
+        default: return self
+        }
+    }
+
+    /// Why the editor cannot save this action yet, as an inline hint; nil when every required field is filled.
+    public var missingField: String? {
+        func empty(_ s: String) -> Bool { s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        switch normalized {
+        case let .keyboardShortcut(k): return empty(k.key) ? "Record a shortcut" : nil
+        case let .openApp(id): return empty(id) ? "Choose an app" : nil
+        case let .openURL(s):
+            if s.isEmpty { return "Enter a URL" }
+            return URL(string: s)?.scheme != nil && !s.contains(where: \.isWhitespace) ? nil : "Enter a valid URL, e.g. https://example.com"
+        case let .openFile(p): return empty(p) ? "Choose a file" : nil
+        case let .shellScript(s), let .appleScript(s): return empty(s) ? "Enter a script" : nil
+        case let .shortcut(n): return empty(n) ? "Enter the shortcut’s name" : nil
+        default: return nil
         }
     }
 }

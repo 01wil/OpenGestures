@@ -1,6 +1,13 @@
 // swift-tools-version:6.0
 import PackageDescription
 
+// With Command Line Tools only, swift-build sometimes resolves macro plugins without the
+// Testing one ("plugin for module 'TestingMacros' not found"). Pointing at it explicitly fixes
+// that; the path is simply ignored when it does not exist (e.g. with Xcode).
+let testSettings: [SwiftSetting] = [
+    .unsafeFlags(["-plugin-path", "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing"]),
+]
+
 let package = Package(
     name: "OpenGestures",
     platforms: [.macOS(.v14)],
@@ -34,11 +41,11 @@ let package = Package(
         ),
         // Records touch frames to JSON for recogniser fixtures.
         .executableTarget(name: "og-record", dependencies: ["Model", "MultitouchBridge"]),
-        .testTarget(name: "ModelTests", dependencies: ["Model"]),
-        .testTarget(name: "RecognizerTests", dependencies: ["Recognizer", "Model"], resources: [.copy("Fixtures")]),
-        .testTarget(name: "ConfigTests", dependencies: ["Config", "Model"]),
-        .testTarget(name: "WindowsTests", dependencies: ["Windows", "Model"]),
-        .testTarget(name: "ActionsTests", dependencies: ["Actions", "Model"]),
-        .testTarget(name: "AppCoreTests", dependencies: ["AppCore", "Actions", "Config", "Model"]),
+        .testTarget(name: "ModelTests", dependencies: ["Model"], swiftSettings: testSettings),
+        .testTarget(name: "RecognizerTests", dependencies: ["Recognizer", "Model"], resources: [.copy("Fixtures")], swiftSettings: testSettings),
+        .testTarget(name: "ConfigTests", dependencies: ["Config", "Model"], swiftSettings: testSettings),
+        .testTarget(name: "WindowsTests", dependencies: ["Windows", "Model"], swiftSettings: testSettings),
+        .testTarget(name: "ActionsTests", dependencies: ["Actions", "Model"], swiftSettings: testSettings),
+        .testTarget(name: "AppCoreTests", dependencies: ["AppCore", "Actions", "Config", "Model"], swiftSettings: testSettings),
     ]
 )

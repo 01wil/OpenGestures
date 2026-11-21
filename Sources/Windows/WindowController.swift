@@ -14,6 +14,12 @@ public final class WindowController {
 
     public func start() { tracker.start() }
 
+    /// Re-attaches focus tracking, e.g. once Accessibility has been granted.
+    public func restart() {
+        tracker.stop()
+        tracker.start()
+    }
+
     // MARK: Focus
 
     @discardableResult public func focusPreviousWindow() -> Bool { focus(tracker.previous()) }

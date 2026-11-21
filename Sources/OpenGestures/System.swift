@@ -12,10 +12,17 @@ enum System {
 
     static var accessibilityGranted: Bool { AXIsProcessTrusted() }
 
-    /// Adds the app to the Accessibility list (so the user only flips the switch) and opens that list.
+    private static var prompted = false
+
+    /// The first time per launch, the system prompt, which adds the app to the Accessibility list and offers
+    /// to open it; after that, straight to the list. Never both, so the user dismisses one thing at most.
     static func requestAccessibility() {
-        _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
-        NSWorkspace.shared.open(accessibilitySettings)
+        if prompted {
+            NSWorkspace.shared.open(accessibilitySettings)
+        } else {
+            prompted = true
+            _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        }
     }
 
     static func appName(_ bundleID: String) -> String? {
