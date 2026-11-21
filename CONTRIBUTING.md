@@ -4,7 +4,7 @@ Thanks for helping. Issues and pull requests are both welcome. For anything bigg
 
 ## Build and test
 
-You need macOS 27, Apple Silicon and the Command Line Tools.
+You need Apple Silicon and the Command Line Tools. It builds on macOS 14 and later, and it is supported and tested on macOS 27.
 
 ```
 swift build

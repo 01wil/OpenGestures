@@ -46,7 +46,7 @@ fi
 identity=${OG_SIGN_IDENTITY:--}
 # Extended attributes (e.g. Finder info on copied resources) make codesign refuse the bundle.
 xattr -cr "$app"
-codesign --force --deep -s "$identity" "$app"
+codesign --force -s "$identity" "$app"
 
 echo "Built $(pwd)/$app ($version, signed with ${OG_SIGN_IDENTITY:-ad-hoc identity})"
 if [ -z "${OG_SIGN_IDENTITY:-}" ]; then

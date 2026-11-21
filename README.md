@@ -2,7 +2,7 @@
 
 <p align="center"><img src="Resources/AppIcon-1024.png" width="128" alt="OpenGestures icon"></p>
 
-Free, open-source gestures for your Mac's trackpad, built-in or Magic Trackpad, mapped to whatever you want.
+Free, open-source gestures for your Mac's trackpad, built-in or Magic Trackpad, mapped to whatever you want. For now you build it from source, because signed downloads need a paid Apple Developer account. A signed download will come if people find the app useful.
 
 OpenGestures is a small menu bar app. You pick a gesture, optionally hold modifier keys, optionally limit it to one app, and choose what it does. Everything lives in one readable config file that you can keep in git.
 
@@ -10,7 +10,7 @@ OpenGestures is a small menu bar app. You pick a gesture, optionally hold modifi
 
 Out of the box, two sets of gestures are bound.
 
-- Swipe left or right with 4 fingers to jump to the previous or next recently used window. There is no switcher UI, it goes straight there, including to windows of other apps and other Spaces.
+- Swipe left or right with 4 fingers to jump to the previous or next recently used window. It goes straight there, including to windows of other apps and other Spaces. See "Walking through windows" below.
 - Hold ⌘ and swipe left or right with 4 fingers to move the focused window to the previous or next display.
 
 Both are ordinary bindings. Edit them, remove them, or add your own in the settings window (⌘,) or in the config file.
@@ -53,23 +53,31 @@ Open and run
 
 Windows and displays
 
-- previousWindow, nextWindow: most recently used order
+- previousWindow, nextWindow: walk through windows in most recently used order, see below
 - previousDisplay, nextDisplay: move the focused window to the neighbouring display. Displays are ordered left to right and wrap around. The window keeps its size, shrunk to fit if needed, and its relative position. A window that fills its screen fills the new one.
 - cursorToNextDisplay
 - windowLayout: maximize, center, leftHalf, rightHalf, topHalf, bottomHalf, topLeft, topRight, bottomLeft, bottomRight
 
 A binding runs one action. Window layouts are triggered by a gesture only. There is no drag-to-edge snapping.
 
+### Walking through windows
+
+The first previous-window gesture takes you back to the window you came from. Keep swiping and you go further back through all your windows, one per swipe, however slowly you swipe. Next-window walks the other way, starting from the least recently used window, and both wrap around. The walk ends when you pick a window yourself, by clicking it or switching with the keyboard. From then on the order starts fresh: the window you walked to counts as used, then the one you picked.
+
+### Restoring a window after a layout
+
+Run the same layout again on a window that is already in that layout, and it goes back to the size and position it had before. Dragging a laid-out window by its title bar also restores its size under the cursor. Windows that round their size, such as a snapped Terminal window, restore the same way.
+
 ## Requirements
 
-- macOS 27 or later. Older versions may work, but they are not supported.
+- macOS 27. It builds on macOS 14 and later, but it is supported and tested on macOS 27 only.
 - Apple Silicon.
 - A trackpad, built-in or Magic Trackpad. Magic Mouse is not supported.
 - Command Line Tools for Xcode, to build it.
 
 ## Install
 
-OpenGestures is installed by building it from source. Signed and notarized downloads need a paid Apple Developer account, which costs $99 a year. I would rather not pay that before I know anyone wants the app. If it turns out to be useful to enough people, a signed download will follow. A star on the repository or an issue telling me what you use it for helps show that.
+OpenGestures is installed by building it from source. Signed and notarized downloads need a paid Apple Developer account, which costs $99 a year, and I would rather not pay that before I know anyone wants the app. A star on the repository or an issue telling me what you use it for helps show that.
 
 Install the Command Line Tools if you do not have them:
 
@@ -91,7 +99,7 @@ Open OpenGestures from `~/Applications` and click Allow Access when asked, then 
 
 ### Why the signing certificate
 
-macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain (macOS asks for your password once), and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates.
+macOS ties the Accessibility grant to the app's signature. `make-signing-cert.sh` creates a self-signed "OpenGestures Local Dev" certificate in your login keychain (macOS asks for your password to trust it, and at the first build `codesign` asks once more: "codesign wants to access key ...". Enter your login password and click Always Allow), and `build-app.sh` signs with it automatically. That keeps the signature identity the same across rebuilds, so the grant survives updates.
 
 Without the certificate the build is ad-hoc signed, and an ad-hoc signature changes with every build. The switch in System Settings then still looks on, but macOS no longer honours it and no gesture action runs. To fix that, remove OpenGestures from the Accessibility list with the minus button and add it again. You can also sign with any other identity: `OG_SIGN_IDENTITY="Your Identity" ./scripts/build-app.sh`.
 
@@ -191,7 +199,7 @@ Other actions look like this:
 
 ## Conflicts with macOS gestures
 
-macOS uses some of the same gestures. By default, 4-finger swipes switch between Spaces and full-screen apps, which clashes with the default bindings. When an enabled binding overlaps a macOS gesture that is switched on, OpenGestures shows a warning that says which one, with a button that opens Trackpad settings. The setting to change is in System Settings › Trackpad › More Gestures. OpenGestures reads those settings and never changes them.
+macOS uses some of the same gestures. By default, 4-finger swipes switch between Spaces and full-screen apps, which clashes with the default bindings. macOS also reacts to 5-finger swipes when its 4-finger swipes are on, so a 5-finger binding clashes too. Its 5-finger pinch for Launchpad and Show Desktop can trip on any 5-finger gesture. When an enabled binding overlaps a macOS gesture that is switched on, OpenGestures shows a warning that says which one, with a button that opens Trackpad settings. The setting to change is in System Settings › Trackpad › More Gestures. OpenGestures reads those settings and never changes them.
 
 ## Privacy
 

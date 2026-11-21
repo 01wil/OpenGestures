@@ -9,7 +9,11 @@ Defined in `Package.swift`. Each is a library target with its own test target, e
 - `Model` is shared value types: `Gesture` (with its string id), `Modifiers`, `Action`, `Binding`, `TouchFrame`. Pure.
 - `Recognizer` takes touch frames and emits `GestureEvent` values. Pure. Thresholds live in `Tuning`.
 - `Config` loads, saves, validates, migrates and watches the config file, resolves bindings (`BindingResolver`), warns about odd bindings (`Validator`) and detects clashes with macOS gestures (`SystemGestureConflicts`).
-- `Windows` has the most-recently-used window list (`WindowHistory`), display ordering and window frame math (`DisplayGeometry`), both pure, plus the Accessibility glue (`AX`, `WindowTracker`, `WindowController`).
+- `Windows` has the most-recently-used window list (`WindowHistory`), display ordering and window frame math (`DisplayGeometry`), and the saved-frame memory for layouts (`RestoreMemory`), all pure. The Accessibility glue is `AX`, `WindowTracker`, `WindowController` and `RestoreWatcher`.
+
+`WindowHistory` keeps `order[0]` as the current window. The first `previous` goes to `order[1]`, the first `next` to the least recent window. That starts a walk over a frozen snapshot, and each further call moves one step older or newer, wrapping. The walk ends when the user activates a window themselves, and the walked-to window is then recorded as used before the picked one. Activations within half a second of a step are our own focus change echoing back and are ignored.
+
+`RestoreMemory` stores, per window, the frame it had before our first layout. Applying the layout it is already in restores that frame. `RestoreWatcher` holds one `AXObserver` per remembered window. A resize that is not ours, or the window closing, drops the saved frame. A drag restores the saved size under the cursor. `placed` records the frame the app really accepted, so windows that snap to a grid or enforce a minimum size still count as already in the layout.
 - `Actions` runs a `Model.Action`. Everything with a side effect sits behind a protocol in `Seams.swift` (window commands, event posting, process launching, opening URLs and files), with real implementations in `Live.swift` and fakes in the tests.
 - `CMultitouch` declares the private MultitouchSupport functions. `MultitouchBridge` wraps them and turns device callbacks into `TouchFrame` values.
 - `OpenGestures` is the app: menu bar item, settings window, first-run screen. It wires the modules together.
@@ -47,7 +51,7 @@ Decoding is lenient on optional fields so hand-written files stay short, and str
 The strategy is to keep logic out of the parts that need hardware.
 
 - The recognizer is a pure function of touch frames. Tests build frames with a synthesizer (`Synth.swift`) and replay recorded fixtures.
-- Fixtures are JSON arrays of frames in `Tests/RecognizerTests/Fixtures`, named `<gesture-id>__<name>.json`. `FixtureTests` runs every file and expects exactly that gesture. A file named `none__<name>.json` must yield no gesture, which is how near misses (too short, wrong finger count, resting palm) are pinned. Record one with:
+- Fixtures are JSON arrays of frames, recorded from a real trackpad, in `Tests/RecognizerTests/Fixtures`, named `<gesture-id>__<name>.json`. `FixtureTests` runs every file and expects exactly that gesture. A file named `none__<name>.json` must yield no gesture, which is how near misses (too short, wrong finger count, resting palm) are pinned. Record one with:
 
 ```
 swift run og-record Tests/RecognizerTests/Fixtures/swipe.4.left__laptop-1.json
