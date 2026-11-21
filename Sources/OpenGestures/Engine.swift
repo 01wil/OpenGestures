@@ -112,7 +112,7 @@ final class Engine {
             switch dispatch {
             case let .run(action)?: runner.run(action)
             case let .adjust(target, delta)?: runner.adjust(target, delta: delta)
-            case let .switcher(older, swipe)?: openSwitcher(older: older, swipe: swipe)
+            case let .switcher(older)?: openSwitcher(older: older)
             case nil: break
             }
         }
@@ -120,13 +120,13 @@ final class Engine {
 
     // MARK: Switcher
 
-    private func openSwitcher(older: Bool, swipe: Gesture.Direction) {
-        guard let s = Switcher(items: windows.windows(), older: older, swipe: swipe) else {
+    private func openSwitcher(older: Bool) {
+        guard let s = Switcher(items: windows.windows(), older: older) else {
             // Nothing to choose from: the plain jump reports why.
             return runner.run(older ? .previousWindow() : .nextWindow())
         }
         switcher = s
-        switcherPanel.show(s.items.map(SwitcherCard.init), selected: s.selected, olderToTheLeft: s.olderToTheLeft)
+        switcherPanel.show(s.items.map(SwitcherCard.init), selected: s.selected)
         log.info("switcher opened, \(s.items.count) windows, selected \(s.selected)")
     }
 

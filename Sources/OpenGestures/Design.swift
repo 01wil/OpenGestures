@@ -16,14 +16,6 @@ enum Design {
     static let aboutIcon: CGFloat = 64
     static let onboardingSize = CGSize(width: 460, height: 340)
     static let stateChange = Animation.easeInOut(duration: 0.2)
-    // Window switcher overlay.
-    static let switcherCard = CGSize(width: 168, height: 105)
-    static let switcherIcon: CGFloat = 64
-    static let switcherVisibleCards = 8
-    static let switcherRadius: CGFloat = 18
-    static let cardRadius: CGFloat = 10
-    static let selectionLine: CGFloat = 2
-    static let selectionMove = Animation.easeOut(duration: 0.15)
 }
 
 /// The macOS 27 SDK declares `@State` as a macro whose plugin ships only with Xcode; the property wrapper

@@ -13,6 +13,10 @@ public struct Tuning: Sendable, Equatable {
     /// Keep reporting a swipe's movement after it fired, until the fingers lift (see `GestureEvent.Phase`).
     public var followsSwipes: Bool
 
+    /// A followed swipe survives this long with contacts on the pad but none touching (the sensor reports a
+    /// lightened hand as lifting or hovering); it ends at once when the contacts are gone.
+    let followGrace = 0.15
+
     public init(sensitivity: Double = 0.5, palmSize: Float = 2, followsSwipes: Bool = false) {
         self.sensitivity = sensitivity
         self.palmSize = palmSize

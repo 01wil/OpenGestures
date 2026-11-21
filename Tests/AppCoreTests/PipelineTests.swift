@@ -89,7 +89,7 @@ func fourFingerSwipeLeft() -> [TouchFrame] {
     @Test func previewOnASwipeOpensTheSwitcher() {
         let bindings = [Binding(gesture: left, action: .previousWindow(preview: true)),
                         Binding(gesture: .tap(fingers: 3), action: .nextWindow(preview: true))]
-        #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: [], app: nil) == .switcher(older: true, swipe: .left))
+        #expect(Dispatcher.dispatch(GestureEvent(left), bindings: bindings, modifiers: [], app: nil) == .switcher(older: true))
         // A tap has no movement to follow: plain jump.
         #expect(Dispatcher.dispatch(GestureEvent(.tap(fingers: 3)), bindings: bindings, modifiers: [], app: nil) == .run(.nextWindow(preview: true)))
     }

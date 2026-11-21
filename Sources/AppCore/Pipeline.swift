@@ -48,7 +48,7 @@ public enum Dispatch: Equatable, Sendable {
     case run(Action)
     case adjust(AdjustTarget, Double)
     /// Open the window switcher; `older` for "previous window".
-    case switcher(older: Bool, swipe: Gesture.Direction)
+    case switcher(older: Bool)
 }
 
 public enum Dispatcher {
@@ -62,8 +62,8 @@ public enum Dispatcher {
         switch (binding.action, event.delta, event.gesture) {
         case let (.adjust(target), delta?, _): return .adjust(target, delta)
         case (.adjust, nil, _), (_, _?, _): return nil
-        case let (.previousWindow(true), nil, .swipe(_, direction)): return .switcher(older: true, swipe: direction)
-        case let (.nextWindow(true), nil, .swipe(_, direction)): return .switcher(older: false, swipe: direction)
+        case (.previousWindow(true), nil, .swipe): return .switcher(older: true)
+        case (.nextWindow(true), nil, .swipe): return .switcher(older: false)
         case let (action, nil, _): return .run(action)
         }
     }

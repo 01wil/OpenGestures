@@ -2,6 +2,9 @@
 
 import Foundation
 import Model
+import os
+
+private let logger = Logger(subsystem: "io.github.opengestures.OpenGestures", category: "recognizer")
 
 /// Turns a stream of `TouchFrame`s into `GestureEvent`s. Not thread-safe; feed it from one queue.
 public final class GestureRecognizer {
@@ -70,6 +73,10 @@ public final class GestureRecognizer {
                 if n <= Self.maxMissingFrames { missing[id] = n; current[id] = p } else { missing[id] = nil }
             }
         }
+        // While following, a frame with contacts but none touching is the hand lightening, not lifting.
+        if current.isEmpty, let s = session, s.follow != nil, !frame.touches.isEmpty, t - s.last < tuning.followGrace {
+            return []
+        }
         let landed = Set(current.keys).subtracting(positions.keys)
         let setChanged = !landed.isEmpty || current.count != positions.count
         let previous = positions
@@ -77,7 +84,10 @@ public final class GestureRecognizer {
 
         guard !current.isEmpty else {
             defer { session = nil }
-            if let f = session?.follow { return [GestureEvent(.swipe(fingers: f.fingers, direction: f.direction), phase: .ended)] }
+            if let f = session?.follow {
+                logger.info("follow ended: \(frame.touches.isEmpty ? "all fingers lifted" : "no finger touching for \(self.tuning.followGrace) s", privacy: .public)")
+                return [GestureEvent(.swipe(fingers: f.fingers, direction: f.direction), phase: .ended)]
+            }
             return session.flatMap(ended).map { [GestureEvent($0)] } ?? []
         }
         var s = session ?? Session(start: t, last: t)
