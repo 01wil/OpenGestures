@@ -56,5 +56,5 @@ echo "Built $(pwd)/$app ($version, signed with ${OG_SIGN_IDENTITY:-ad-hoc identi
 if [ -z "${OG_SIGN_IDENTITY:-}" ]; then
     echo "Note: ad-hoc builds get a new signature on every rebuild, so macOS stops honouring the Accessibility grant."
     echo "Run scripts/make-signing-cert.sh once to sign with a stable local certificate instead."
-    echo "Turn OpenGestures off and on in System Settings > Privacy & Security > Accessibility if gestures stop moving windows."
+    echo "If gestures stop moving windows, remove OpenGestures from System Settings > Privacy & Security > Accessibility with the minus button and add it again."
 fi
