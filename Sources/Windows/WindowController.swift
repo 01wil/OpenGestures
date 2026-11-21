@@ -9,8 +9,12 @@ import Model
 @MainActor
 public final class WindowController {
     private let tracker = WindowTracker()
+    private var memory = RestoreMemory<CGWindowID>()
+    private let watcher = RestoreWatcher()
 
-    public init() {}
+    public init() {
+        watcher.onEvent = { [weak self] id, event in self?.windowEvent(id, event) }
+    }
 
     public func start() { tracker.start() }
 
@@ -66,10 +70,49 @@ public final class WindowController {
         return AX.setFrame(DisplayGeometry.ax(fromAppKit: target, primaryMaxY: Self.primaryMaxY), of: w)
     }
 
+    /// Applies the layout, or, when the window already sits at it and we saved its earlier frame, puts
+    /// that frame back.
     @discardableResult public func apply(layout: WindowLayout) -> Bool {
         guard let (w, ax, screens, i) = focusedWindowOnScreen() else { return false }
-        let target = DisplayGeometry.frame(for: layout, windowSize: ax.size, in: screens[i].visibleFrame)
-        return AX.setFrame(DisplayGeometry.ax(fromAppKit: target, primaryMaxY: Self.primaryMaxY), of: w)
+        let target = DisplayGeometry.ax(fromAppKit: DisplayGeometry.frame(for: layout, windowSize: ax.size, in: screens[i].visibleFrame),
+                                        primaryMaxY: Self.primaryMaxY)
+        guard let id = AX.windowID(w) else { return AX.setFrame(target, of: w) }
+        switch memory.toggle(id, current: ax, target: target) {
+        case .restore(let original):
+            watcher.unwatch(id)
+            return AX.setFrame(original, of: w)
+        case .apply:
+            let ok = AX.setFrame(target, of: w)
+            if ok, memory.original(of: id) != nil {
+                memory.placed(id, at: AX.frame(of: w) ?? target)
+                watcher.watch(id, w)
+            } else {
+                forget(id)
+            }
+            return ok
+        }
+    }
+
+    private func forget(_ id: CGWindowID) {
+        memory.forget(id)
+        watcher.unwatch(id)
+    }
+
+    /// The user resizing or closing a window drops its saved frame; dragging it with the left button
+    /// down restores the saved size under the cursor. Our own setFrame reports the size we placed.
+    private func windowEvent(_ id: CGWindowID, _ event: RestoreWatcher.Event) {
+        guard event != .closed, let w = watcher.element(for: id), let frame = AX.frame(of: w) else { return forget(id) }
+        if memory.userResized(id, to: frame.size) { return forget(id) }
+        guard event == .moved, NSEvent.pressedMouseButtons & 1 != 0, let original = memory.original(of: id) else { return }
+        let maxY = Self.primaryMaxY
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return }
+        let target = DisplayGeometry.restoredFrame(dragging: frame, restoreSize: original.size,
+                                                   pointer: CGPoint(x: mouse.x, y: maxY - mouse.y),
+                                                   in: DisplayGeometry.ax(fromAppKit: visible, primaryMaxY: maxY))
+        forget(id)
+        AX.setFrame(target, of: w)
     }
 
     /// Focused window of the front app, its AX frame, and the screen it mostly sits on. When the front

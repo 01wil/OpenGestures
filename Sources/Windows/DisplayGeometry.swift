@@ -88,4 +88,16 @@ public enum DisplayGeometry {
                           y: v.minY + ((v.height - h) / 2).rounded(.down), width: w, height: h)
         }
     }
+
+    /// Frame for a window the user just pulled out of a layout (AX space, y down): the restored size
+    /// with the pointer at the same relative x on the title bar and the same depth below its top,
+    /// kept inside `visible` and never above its top edge.
+    public static func restoredFrame(dragging current: CGRect, restoreSize: CGSize, pointer: CGPoint, in visible: CGRect) -> CGRect {
+        let ratio = current.width > 0 ? min(max((pointer.x - current.minX) / current.width, 0), 1) : 0.5
+        let depth = min(max(pointer.y - current.minY, 0), restoreSize.height)
+        let x = restoreSize.width <= visible.width
+            ? min(max(pointer.x - ratio * restoreSize.width, visible.minX), visible.maxX - restoreSize.width)
+            : visible.minX
+        return CGRect(origin: CGPoint(x: x, y: max(pointer.y - depth, visible.minY)), size: restoreSize)
+    }
 }
