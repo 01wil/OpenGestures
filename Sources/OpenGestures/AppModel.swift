@@ -8,7 +8,7 @@ import Observation
 import ServiceManagement
 import os
 
-let log = Logger(subsystem: "io.github.opengestures.OpenGestures", category: "app")
+let log = Logger(subsystem: "io.github.01wil.OpenGestures", category: "app")
 
 /// The live configuration and everything the UI shows about it. The config file is the source of truth:
 /// edits go through `update`, which saves; the watcher brings every save (ours or a text editor's) back in.

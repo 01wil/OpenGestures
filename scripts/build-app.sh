@@ -22,7 +22,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key><string>OpenGestures</string>
-    <key>CFBundleIdentifier</key><string>io.github.opengestures.OpenGestures</string>
+    <key>CFBundleIdentifier</key><string>io.github.01wil.OpenGestures</string>
     <key>CFBundleName</key><string>OpenGestures</string>
     <key>CFBundleDisplayName</key><string>OpenGestures</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
