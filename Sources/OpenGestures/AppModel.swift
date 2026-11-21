@@ -22,7 +22,7 @@ final class AppModel {
     var notice: String?
     private(set) var isFirstRun = false
     private(set) var accessibilityGranted = System.accessibilityGranted
-    @ObservationIgnored private(set) lazy var engine = Engine { [weak self] message in self?.report(message) }
+    @ObservationIgnored private(set) lazy var engine = Engine { [weak self] message, kind in self?.report(message, kind: kind) }
     /// Nil outside an app bundle. Shows the real status and the last failure.
     private(set) var loginItem = MainAppLoginItem.available ? LaunchAtLogin(MainAppLoginItem()) : nil
     @ObservationIgnored private var watcher: ConfigWatcher?
@@ -35,7 +35,7 @@ final class AppModel {
             apply(try store.load())
         } catch {
             configError = error.localizedDescription
-            log.error("config: \(error.localizedDescription, privacy: .public)")
+            log.error("config: \(error.localizedDescription, privacy: .private)")
         }
         watcher = store.watch { [weak self] result in
             Task { @MainActor in self?.reloaded(result) }
@@ -69,12 +69,13 @@ final class AppModel {
             try store.save(next)
             apply(next)
         } catch {
-            report(error.localizedDescription)
+            report(error.localizedDescription, kind: "save failed")
         }
     }
 
-    func report(_ message: String) {
-        log.error("\(message, privacy: .public)")
+    /// The notice shows the message; the log gets only the kind publicly (messages can quote scripts, URLs, paths).
+    func report(_ message: String, kind: String) {
+        log.error("\(kind, privacy: .public): \(message, privacy: .private)")
         notice = message
     }
 
@@ -85,7 +86,7 @@ final class AppModel {
             apply(c)
         case let .failure(e):
             configError = e.localizedDescription
-            log.error("config: \(e.localizedDescription, privacy: .public)")
+            log.error("config: \(e.localizedDescription, privacy: .private)")
         }
     }
 

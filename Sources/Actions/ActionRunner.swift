@@ -48,7 +48,7 @@ public final class ActionRunner: @unchecked Sendable {
                 try workspace.openFile(at: URL(fileURLWithPath: (path as NSString).expandingTildeInPath))
             case let .shellScript(script): launch("/bin/zsh", ["-lc", script])
             case let .appleScript(script): launch("/usr/bin/osascript", ["-e", script])
-            case let .shortcut(name): launch("/usr/bin/shortcuts", ["run", name])
+            case let .shortcut(name): launch("/usr/bin/shortcuts", ["run", "--", name])
             case let .systemKey(key): try system(key)
             case let .mouseClick(button):
                 events.postMouse(button, down: true)
@@ -68,6 +68,7 @@ public final class ActionRunner: @unchecked Sendable {
 
     /// Continuous gestures: one step per `adjustStep` of accumulated movement, sign = direction.
     public func adjust(_ target: AdjustTarget, delta: Double) {
+        guard delta.isFinite else { return }
         let steps: Int = lock.withLock {
             var total = (accumulated[target] ?? 0) + delta
             let whole = Int(total / Self.adjustStep)

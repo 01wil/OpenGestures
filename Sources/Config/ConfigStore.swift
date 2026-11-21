@@ -30,11 +30,44 @@ public struct ConfigStore: Sendable {
     /// Atomic. A symlink (e.g. into a dotfiles repo) is followed to its destination, even a missing one, and kept.
     public func save(_ configuration: Configuration) throws {
         let target = Self.resolved(url)
+        let dir = target.deletingLastPathComponent()
         do {
-            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try configuration.encoded().write(to: target, options: .atomic)
+            if target != url {
+                // A symlink's destination folder is the user's (e.g. a dotfiles repo): never create it.
+                var isDirectory: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                    throw ConfigError.unreadable("The folder of the symlink target does not exist: \(dir.path)")
+                }
+            } else {
+                try Self.createPrivateDirectory(dir)
+            }
+            try Self.writePrivately(try configuration.encoded(), to: target)
+        } catch let error as ConfigError {
+            throw error
         } catch {
             throw ConfigError.unreadable(error.localizedDescription)
+        }
+    }
+
+    /// Creates `dir` (and missing parents) with mode 0700 for the last component; an existing one is left as is.
+    static func createPrivateDirectory(_ dir: URL) throws {
+        guard !FileManager.default.fileExists(atPath: dir.path) else { return }
+        try FileManager.default.createDirectory(at: dir.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+    }
+
+    /// Atomic (temp file + rename) and never more readable than 0600, not even briefly.
+    static func writePrivately(_ data: Data, to target: URL) throws {
+        let temp = target.deletingLastPathComponent().appendingPathComponent(".\(target.lastPathComponent).\(UUID().uuidString).tmp")
+        let fd = open(temp.path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
+        guard fd >= 0 else { throw CocoaError(.fileWriteUnknown, userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))]) }
+        defer { unlink(temp.path) }  // no-op after a successful rename
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        try handle.write(contentsOf: data)
+        try handle.synchronize()
+        try handle.close()
+        guard rename(temp.path, target.path) == 0 else {
+            throw CocoaError(.fileWriteUnknown, userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))])
         }
     }
 
@@ -77,7 +110,7 @@ public struct ConfigStore: Sendable {
     /// configuration or the error; the caller keeps its last good configuration on failure.
     /// Our own `save` triggers it too.
     public func watch(_ onChange: @escaping @Sendable (Result<Configuration, ConfigError>) -> Void) -> ConfigWatcher {
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Self.createPrivateDirectory(url.deletingLastPathComponent())
         return ConfigWatcher(store: self, handler: onChange)
     }
 
@@ -127,7 +160,7 @@ public final class ConfigWatcher: @unchecked Sendable {
     deinit { cancel() }
 
     private func makeSource(path: String, mask: DispatchSource.FileSystemEvent) -> DispatchSourceFileSystemObject? {
-        let fd = open(path, O_EVTONLY)
+        let fd = open(path, O_EVTONLY | O_CLOEXEC)
         guard fd >= 0 else { return nil }
         let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: mask, queue: queue)
         source.setEventHandler { [weak self] in self?.schedule() }

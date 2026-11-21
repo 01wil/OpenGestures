@@ -80,9 +80,8 @@ public struct ProcessLauncher: ProcessLaunching {
         posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
         posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0)
         posix_spawn_file_actions_adddup2(&actions, fds[1], 2)
-        posix_spawn_file_actions_addclose(&actions, fds[0])
-        posix_spawn_file_actions_addclose(&actions, fds[1])
-        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP))
+        // Only 0, 1 and 2 reach the child; every other descriptor of ours is closed at exec.
+        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT))
         posix_spawnattr_setpgroup(&attr, 0)
         let argv = ([executable] + arguments).map { strdup($0) } + [nil]
         defer { argv.forEach { free($0) } }

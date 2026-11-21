@@ -14,9 +14,9 @@ import Windows
 final class Engine {
     private let pipeline = GesturePipeline()
     private let windows = WindowController()
-    private let report: @MainActor (String) -> Void
+    private let report: @MainActor (_ message: String, _ kind: String) -> Void
     private lazy var runner = ActionRunner(windows: WindowCommandsAdapter(controller: windows), onError: { [weak self] error in
-        Task { @MainActor in self?.report(error.message) }
+        Task { @MainActor in self?.report(error.message, error.kind) }
     })
     private var bindings: [Binding] = []
     private var enabled = false
@@ -25,7 +25,7 @@ final class Engine {
     private var notificationPort: IONotificationPortRef?
     private var pendingRestart: DispatchWorkItem?
 
-    init(report: @escaping @MainActor (String) -> Void) {
+    init(report: @escaping @MainActor (_ message: String, _ kind: String) -> Void) {
         self.report = report
     }
 
@@ -96,7 +96,13 @@ final class Engine {
             let dispatch = Dispatcher.dispatch(event, bindings: bindings, modifiers: modifiers, app: app)
             // Sliding gestures send a stream of deltas; log only the discrete ones.
             if event.delta == nil {
-                log.info("gesture \(event.gesture.id, privacy: .public) → \(dispatch.map { "\($0)" } ?? "no binding", privacy: .public)")
+                // Never the action itself: scripts, URLs and paths stay out of the log.
+                let what: String = switch dispatch {
+                case let .run(action)?: action.kind.rawValue
+                case .adjust?: "adjust"
+                case nil: "no binding"
+                }
+                log.info("gesture \(event.gesture.id, privacy: .public) → \(what, privacy: .public)")
             }
             switch dispatch {
             case let .run(action)?: runner.run(action)

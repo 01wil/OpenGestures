@@ -155,6 +155,8 @@ func makeTempDir() throws -> URL {
     @Test(arguments: [false, true])
     func danglingSymlinkIsWrittenThroughNotReplaced(relative: Bool) throws {
         let target = dir.appendingPathComponent("dotfiles/sub/config.json")
+        // Directories are never created for a symlink target: it must already exist.
+        try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
         let link = try symlink(to: target, relative: relative)
 
         #expect(try ConfigStore(url: link).load() == .default)
@@ -254,5 +256,49 @@ func makeTempDir() throws -> URL {
         try await Task.sleep(for: .milliseconds(300))
         #expect(events.all.isEmpty)
         #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+}
+
+@Suite struct ConfigPermissionTests {
+    let dir = try! makeTempDir()
+
+    private func mode(_ url: URL) throws -> Int {
+        try (FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as! NSNumber).intValue & 0o777
+    }
+
+    @Test func newConfigIs0600InA0700Directory() throws {
+        let url = dir.appendingPathComponent("opengestures/config.json")
+        try ConfigStore(url: url).save(.default)
+        #expect(try mode(url) == 0o600)
+        #expect(try mode(url.deletingLastPathComponent()) == 0o700)
+    }
+
+    @Test func overwriteTightensExistingFileAndLeavesDirectoryAlone() throws {
+        let url = dir.appendingPathComponent("config.json")
+        try Data("{}".utf8).write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
+        try ConfigStore(url: url).save(.default)
+        #expect(try mode(url) == 0o600)
+        #expect(try mode(dir) == 0o755)
+    }
+
+    @Test func danglingSymlinkIntoMissingDirectoryErrorsWithoutCreatingIt() throws {
+        let target = dir.appendingPathComponent("dotfiles/sub/config.json")
+        let link = dir.appendingPathComponent("link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        #expect(throws: ConfigError.self) { try ConfigStore(url: link).save(.default) }
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("dotfiles").path))
+        #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)) != nil)
+    }
+
+    @Test func symlinkTargetKeeps0600AndItsDirectoryMode() throws {
+        let repo = dir.appendingPathComponent("dotfiles")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o755])
+        let link = dir.appendingPathComponent("link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: repo.appendingPathComponent("config.json"))
+        try ConfigStore(url: link).save(.default)
+        #expect(try mode(repo.appendingPathComponent("config.json")) == 0o600)
+        #expect(try mode(repo) == 0o755)
     }
 }

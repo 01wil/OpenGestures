@@ -69,13 +69,18 @@ public final class MultitouchBridge: @unchecked Sendable {
     }
 }
 
-/// Must return 0: on macOS 27 a void-returning callback reportedly suppresses system gestures.
-private let contactCallback: MTContactCallbackFunction = { device, touches, count, timestamp, _ in
-    var list: [Touch] = []
-    list.reserveCapacity(Int(count))
-    if let touches {
-        for i in 0..<Int(count) {
+extension MultitouchBridge {
+    /// Contacts per frame accepted from the framework; a bogus count must not become a huge read.
+    static let maxTouches = 32
+
+    /// Converts a raw frame, dropping touches with non-finite values (they would trap later conversions).
+    static func touches(from touches: UnsafePointer<MTTouch>?, count: Int32) -> [Touch] {
+        guard let touches, count > 0 else { return [] }
+        var list: [Touch] = []
+        for i in 0..<Int(min(Int(count), maxTouches)) {
             let t = touches[i]
+            let values = [t.normalized.position.x, t.normalized.position.y, t.normalized.velocity.x, t.normalized.velocity.y, t.size]
+            guard values.allSatisfy(\.isFinite) else { continue }
             list.append(Touch(
                 id: Int(t.identifier),
                 x: t.normalized.position.x, y: t.normalized.position.y,
@@ -83,7 +88,13 @@ private let contactCallback: MTContactCallbackFunction = { device, touches, coun
                 size: t.size, state: Int(t.state)
             ))
         }
+        return list
     }
-    MultitouchBridge.shared.deliver(device: Int(bitPattern: device), TouchFrame(timestamp: timestamp, touches: list))
+}
+
+/// Must return 0: on macOS 27 a void-returning callback reportedly suppresses system gestures.
+private let contactCallback: MTContactCallbackFunction = { device, touches, count, timestamp, _ in
+    MultitouchBridge.shared.deliver(device: Int(bitPattern: device),
+                                    TouchFrame(timestamp: timestamp, touches: MultitouchBridge.touches(from: touches, count: count)))
     return 0
 }

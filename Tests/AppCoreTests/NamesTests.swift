@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Actions
+import Foundation
 import Model
 import Testing
 @testable import AppCore
@@ -42,12 +43,25 @@ import Testing
         #expect(Action.keyboardShortcut(KeyCombo(key: "t", modifiers: .command)).summary() == "Press ⌘T")
         #expect(Action.openApp(bundleID: "com.apple.Safari").summary(appName: { _ in "Safari" }) == "Open Safari")
         #expect(Action.openApp(bundleID: "com.x.y").summary() == "Open com.x.y")
-        #expect(Action.openURL("https://example.com/a").summary() == "Open example.com")
-        #expect(Action.openFile(path: "~/Notes/todo.md").summary() == "Open todo.md")
+        #expect(Action.openURL("https://example.com/a").summary() == "Open https://example.com/a")
+        #expect(Action.openFile(path: "~/Notes/todo.md").summary() == "Open ~/Notes/todo.md")
         #expect(Action.shortcut(name: "Focus").summary() == "Run shortcut “Focus”")
         #expect(Action.systemKey(.playPause).summary() == "Play / Pause")
         #expect(Action.mouseClick(.right).summary() == "Right click")
         #expect(Action.adjust(.volume).summary() == "Adjust volume")
+    }
+
+    @Test func summariesShowFullFilePathAndURL() {
+        let home = NSHomeDirectory()
+        #expect(Action.openFile(path: home + "/Documents/a/b.sh").summary() == "Open ~/Documents/a/b.sh")
+        #expect(Action.openFile(path: "/opt/tools/run.sh").summary() == "Open /opt/tools/run.sh")
+        #expect(Action.openURL("https://evil.example.com/pay?x=1").summary() == "Open https://evil.example.com/pay?x=1")
+    }
+
+    @Test func errorKindsCarryNoContent() {
+        #expect(ActionError.scriptFailed("secret").kind == "scriptFailed")
+        #expect(ActionError.invalidURL("http://x").kind == "invalidURL")
+        #expect(ActionError.timedOut.kind == "timedOut")
     }
 
     @Test(arguments: ActionKind.allCases)

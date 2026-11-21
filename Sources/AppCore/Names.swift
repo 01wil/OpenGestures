@@ -179,8 +179,8 @@ extension Action {
         switch self {
         case let .keyboardShortcut(k): "Press \(k.display)"
         case let .openApp(id): "Open \(appName(id) ?? id)"
-        case let .openURL(s): "Open \(URL(string: s)?.host() ?? s)"
-        case let .openFile(p): "Open \((p as NSString).lastPathComponent)"
+        case let .openURL(s): "Open \(s)"
+        case let .openFile(p): "Open \((p as NSString).abbreviatingWithTildeInPath)"
         case .shellScript: "Run shell script"
         case .appleScript: "Run AppleScript"
         case let .shortcut(name): "Run shortcut “\(name)”"
@@ -230,6 +230,20 @@ extension WindowLayout {
 }
 
 extension ActionError {
+    /// The case name alone: safe to log publicly, unlike `message`, which can quote scripts, URLs and stderr.
+    public var kind: String {
+        switch self {
+        case .unknownKey: "unknownKey"
+        case .invalidURL: "invalidURL"
+        case .appNotFound: "appNotFound"
+        case .scriptFailed: "scriptFailed"
+        case .timedOut: "timedOut"
+        case .launchFailed: "launchFailed"
+        case .notDiscrete: "notDiscrete"
+        case .failed: "failed"
+        }
+    }
+
     public var message: String {
         switch self {
         case let .unknownKey(k): "Unknown key “\(k)” in a keyboard shortcut."

@@ -144,7 +144,7 @@ struct BindingRow: View {
             Text(binding.gesture.title)
             ForEach(binding.modifiers.symbols, id: \.self) { ModifierChip(symbol: $0) }
             Spacer()
-            Text(binding.action.summary(appName: System.appName)).foregroundStyle(.secondary)
+            Text(binding.action.summary(appName: System.appName)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             Toggle("Enabled", isOn: .init(get: { binding.enabled }, set: setEnabled))
                 .labelsHidden()
                 .toggleStyle(.switch)

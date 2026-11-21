@@ -46,6 +46,7 @@ let package = Package(
         .testTarget(name: "ConfigTests", dependencies: ["Config", "Model"], swiftSettings: testSettings),
         .testTarget(name: "WindowsTests", dependencies: ["Windows", "Model"], swiftSettings: testSettings),
         .testTarget(name: "ActionsTests", dependencies: ["Actions", "Model"], swiftSettings: testSettings),
+        .testTarget(name: "MultitouchBridgeTests", dependencies: ["MultitouchBridge", "CMultitouch", "Model"], swiftSettings: testSettings),
         .testTarget(name: "AppCoreTests", dependencies: ["AppCore", "Actions", "Config", "Model"], swiftSettings: testSettings),
     ]
 )

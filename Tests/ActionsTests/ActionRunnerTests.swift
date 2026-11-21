@@ -92,7 +92,7 @@ import Model
     @Test func shortcut() {
         let f = Fake()
         f.runner().run(.shortcut(name: "My Shortcut"))
-        #expect(f.log == ["launch /usr/bin/shortcuts run|My Shortcut 30"])
+        #expect(f.log == ["launch /usr/bin/shortcuts run|--|My Shortcut 30"])
     }
 
     @Test func failureIsReported() {
@@ -116,6 +116,20 @@ import Model
             ProcessLauncher().launch("/bin/sh", arguments: ["-c", "echo oops >&2; exit 3"], timeout: 5) { c.resume(returning: $0) }
         }
         #expect(err == .scriptFailed("oops"))
+    }
+
+    @Test func childInheritsOnlyStdio() async throws {
+        let leak = open("/dev/null", O_RDONLY)  // not close-on-exec: must not reach the child
+        defer { close(leak) }
+        let out = FileManager.default.temporaryDirectory.appendingPathComponent("og-fds-\(UUID().uuidString)").path
+        defer { try? FileManager.default.removeItem(atPath: out) }
+        let err = await withCheckedContinuation { c in
+            ProcessLauncher().launch("/bin/sh", arguments: ["-c", "echo /dev/fd/* > '\(out)'; echo oops >&2; exit 1"], timeout: 5) { c.resume(returning: $0) }
+        }
+        #expect(err == .scriptFailed("oops"))  // stderr still wired
+        let fds = try String(contentsOfFile: out, encoding: .utf8).split(whereSeparator: \.isWhitespace).map { String($0.split(separator: "/").last!) }
+        #expect(!fds.contains(String(leak)))
+        #expect(Set(fds).isSubset(of: ["0", "1", "2", "3"]), "\(fds)")
     }
 
     @Test func liveLauncherSuccess() async {
@@ -291,6 +305,15 @@ import Model
         r.adjust(.volume, delta: 0.07)
         r.adjust(.volume, delta: 0.05)
         #expect(f.log.count == 4)
+    }
+
+    @Test(arguments: [Double.nan, .infinity, -.infinity])
+    func nonFiniteDeltaIsIgnored(delta: Double) {
+        let f = Fake()
+        let r = f.runner()
+        r.adjust(.volume, delta: delta)
+        r.adjust(.volume, delta: 0.07)
+        #expect(f.log == ["media.0.down", "media.0.up"])
     }
 
     @Test func targetsAreIndependent() {
