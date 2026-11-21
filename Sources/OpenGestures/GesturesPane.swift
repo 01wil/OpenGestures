@@ -69,11 +69,18 @@ struct GesturesPane: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    if !model.pending.isEmpty {
+                        Section {
+                            Label("\(model.pending.count) action\(model.pending.count == 1 ? "" : "s") from the config file \(model.pending.count == 1 ? "is" : "are") waiting for your approval. Until you allow \(model.pending.count == 1 ? "it" : "them"), nothing happens.", systemImage: "hand.raised")
+                            Button("Review…", action: model.reviewPending)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
                     NotesSection(notes: notes)
                     ForEach(BindingGroup.groups(bindings)) { group in
                         Section {
                             ForEach(group.bindings) { b in
-                                BindingRow(binding: b) { on in
+                                BindingRow(binding: b, waiting: model.pending.contains { $0.id == b.id }) { on in
                                     model.update { $0.setEnabled(on, id: b.id) }
                                 }
                                 .contentShape(Rectangle())
@@ -134,6 +141,7 @@ struct AppLabel: View {
 
 struct BindingRow: View {
     let binding: GestureBinding
+    var waiting = false
     let setEnabled: @MainActor @Sendable (Bool) -> Void
 
     var body: some View {
@@ -144,7 +152,7 @@ struct BindingRow: View {
             Text(binding.gesture.title)
             ForEach(binding.modifiers.symbols, id: \.self) { ModifierChip(symbol: $0) }
             Spacer()
-            Text(binding.action.summary(appName: System.appName)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+            Text(waiting ? "Waiting for approval" : binding.action.summary(appName: System.appName)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             Toggle("Enabled", isOn: .init(get: { binding.enabled }, set: setEnabled))
                 .labelsHidden()
                 .toggleStyle(.switch)

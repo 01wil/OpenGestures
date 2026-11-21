@@ -61,6 +61,14 @@ Add a binding for each in the settings window, with any gesture you like, and fi
 - [ ] Copy the file to a fresh user account's `~/.config/opengestures/` and launch the app there. All bindings are restored.
 - [ ] Replace the file with a symlink to a file elsewhere. Edits in the window and in the editor still work, and the link remains.
 
+## Approval of actions from outside
+
+- [ ] Add a shell-script binding in the settings window and fire it. It runs and no dialog appears.
+- [ ] In a text editor, add a binding with a `shellScript` (for example `touch /tmp/og-test`) and save. A dialog lists it in full. Click Not now: the gesture does nothing, the row says "Waiting for approval", and the Gestures pane shows a banner with Review.
+- [ ] Click Review… and Allow. The gesture works. Quit and relaunch: it still works, with no dialog.
+- [ ] Change the script text in the editor. The dialog appears again for the new text.
+- [ ] Add a plain window action in the editor. It works at once with no dialog.
+
 ## Settings window
 
 - [ ] ⌘, opens it.

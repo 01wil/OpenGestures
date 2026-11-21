@@ -34,6 +34,8 @@ The resolver receives the gesture, the modifier keys held at that moment, and th
 
 Config changes flow the other way. `ConfigStore.watch` watches the directory and the file, debounces by 50 ms, and delivers either a new `Configuration` or a `ConfigError`. The app swaps in a valid configuration and keeps the previous one on error. The settings window edits the same `Configuration` and saves through `ConfigStore`, so the file and the editor stay in sync.
 
+Actions that run code (shell script, AppleScript, Shortcut, file, URL) are gated by `ActionApproval`. `AppModel` keeps bindings whose action is not approved out of the engine and shows them as waiting. Edits made in the window approve what they change; everything else waits for the dialog. Approvals are fingerprints in `approved.json` (`ApprovalStore`), outside the config.
+
 ## Config schema
 
 ```

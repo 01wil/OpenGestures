@@ -300,7 +300,7 @@ It quits the app, resets its Accessibility permission, moves `~/Applications/Ope
 
 ## Security
 
-- `config.json` is executable. A `shellScript` or `appleScript` action runs with your user rights, and the app's Accessibility permission comes along for the ride. Keep the file at mode 0600 (`chmod 600 ~/.config/opengestures/config.json`), and read the diff before you pull a shared or dotfiles config that changes it.
+- `config.json` is executable. A `shellScript` or `appleScript` action runs with your user rights, and the app's Accessibility permission comes along for the ride. So shell script, AppleScript, Shortcut, file and URL actions only run after you approved them. What you set up in the settings window is approved by doing it. When one arrives any other way, for example from a dotfiles `git pull` or a config you copied, OpenGestures shows it in full and keeps it disabled until you click Allow. This guards against a config changing under you. A program that runs as you could still edit the approvals file, so keep the config at mode 0600 (`chmod 600 ~/.config/opengestures/config.json`) and read the diff before you pull a shared config.
 - The "OpenGestures Local Dev" certificate is self-signed and trusted for code signing for your user only. It lives in your login keychain. Anyone who can use its key can sign code that macOS treats as OpenGestures, which is why each build asks for your password and why you should click Allow, not Always Allow. `./scripts/remove-signing-cert.sh` removes the trust and deletes the certificate and key.
 - OpenGestures makes no network connections and sends no telemetry.
 - It reads touches through Apple's private MultitouchSupport framework. Private APIs can change in any macOS update.

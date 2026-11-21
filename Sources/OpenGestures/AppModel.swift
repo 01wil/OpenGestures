@@ -26,6 +26,11 @@ final class AppModel {
     /// Nil outside an app bundle. Shows the real status and the last failure.
     private(set) var loginItem = MainAppLoginItem.available ? LaunchAtLogin(MainAppLoginItem()) : nil
     @ObservationIgnored private var watcher: ConfigWatcher?
+    @ObservationIgnored private let approvals = ApprovalStore()
+    /// Enabled bindings with a code-running action nobody approved yet. They are kept out of the engine.
+    private(set) var pending: [GestureBinding] = []
+    /// What the dialog already asked about, so a reload does not ask again. The banner can always ask.
+    @ObservationIgnored private var asked: Set<String> = []
 
     var canEdit: Bool { configError == nil }
 
@@ -41,6 +46,7 @@ final class AppModel {
             Task { @MainActor in self?.reloaded(result) }
         }
         engine.start()
+        Task { @MainActor in self.askIfNew() }
         log.info("accessibility \(self.accessibilityGranted ? "granted" : "not granted", privacy: .public)")
         // Posted when the Accessibility list changes; the new state is readable a moment later.
         DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.accessibility.api"), object: nil, queue: .main) { [weak self] _ in
@@ -66,6 +72,8 @@ final class AppModel {
         change(&next)
         guard next != config else { return }
         do {
+            // What the user changes in the window is approved by that act; the rest of the file is not.
+            try approvals.add(ActionApproval.approvedByEdit(old: config.bindings, new: next.bindings))
             try store.save(next)
             apply(next)
         } catch {
@@ -84,6 +92,7 @@ final class AppModel {
         case let .success(c):
             configError = nil
             apply(c)
+            askIfNew()
         case let .failure(e):
             configError = e.localizedDescription
             log.error("config: \(e.localizedDescription, privacy: .private)")
@@ -92,8 +101,50 @@ final class AppModel {
 
     private func apply(_ c: Configuration) {
         config = c
-        engine.configure(bindings: c.bindings, enabled: c.settings.enabled, sensitivity: c.settings.sensitivity)
+        pending = ActionApproval.pending(c.bindings, approved: approvals.load())
+        let waiting = Set(pending.map(\.id))
+        engine.configure(bindings: c.bindings.filter { !waiting.contains($0.id) }, enabled: c.settings.enabled, sensitivity: c.settings.sensitivity)
         loginItem?.sync(wanted: c.settings.launchAtLogin)
+    }
+
+    /// Asks once per new pending action; the Gestures pane banner asks again on demand.
+    private func askIfNew() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["OG_SNAPSHOT_DIR"] != nil { return }  // a modal dialog would block the renders
+        #endif
+        let now = Set(pending.map { ActionApproval.fingerprint($0.action) })
+        guard !now.isSubset(of: asked) else { return }
+        asked.formUnion(now)
+        reviewPending()
+    }
+
+    /// Lists the pending actions in full. Allow approves exactly those; Not now leaves them waiting.
+    func reviewPending() {
+        let waiting = pending
+        guard !waiting.isEmpty else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = ApprovalPrompt.title(count: waiting.count)
+        alert.informativeText = ApprovalPrompt.message
+        let scroll = NSTextView.scrollableTextView()
+        scroll.frame = NSRect(x: 0, y: 0, width: 440, height: 220)
+        scroll.borderType = .bezelBorder
+        if let text = scroll.documentView as? NSTextView {
+            text.isEditable = false
+            text.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            text.string = ApprovalPrompt.details(waiting)
+        }
+        alert.accessoryView = scroll
+        alert.addButton(withTitle: "Allow")
+        alert.addButton(withTitle: "Not now")
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try approvals.add(Set(waiting.map { ActionApproval.fingerprint($0.action) }))
+            apply(config)
+        } catch {
+            report(error.localizedDescription, kind: "approval failed")
+        }
     }
 
     func setLaunchAtLogin(_ wanted: Bool) {

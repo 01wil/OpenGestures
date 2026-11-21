@@ -10,7 +10,8 @@ Use GitHub private vulnerability reporting: open the Security tab of [github.com
 
 ## Threat model
 
-- The config file is trusted. `~/.config/opengestures/config.json` can run shell scripts and AppleScript as your user, with OpenGestures' Accessibility permission. Anyone who can write it can run code as you. Keep it at mode 0600 and review changes from shared configs.
+- The config file can run code. `~/.config/opengestures/config.json` can hold shell scripts and AppleScript that run as your user, with OpenGestures' Accessibility permission. Keep it at mode 0600 and review changes from shared configs.
+- Because of that, a shell script, AppleScript, Shortcut, file or URL action does not run until you approved that exact action. What you change in the settings window counts as approved. Anything that arrives any other way (a text editor, `git pull`, a copied file) is shown in a dialog and stays disabled until you click Allow. The approvals are hashes in `~/Library/Application Support/OpenGestures/approved.json`, never in the config. This protects you from a dotfiles or shared config changing under you. It does not protect against a program running as you: it can edit the approvals file too.
 - The app makes no network connections and sends no telemetry.
 - The build is signed with the hardened runtime. The local signing certificate is self-signed and trusted for your user only. Its private key stays in your login keychain and is not pre-authorised for `codesign`, so each build asks for your password.
 - The app reads touches through Apple's private MultitouchSupport framework, which a macOS update can change.
