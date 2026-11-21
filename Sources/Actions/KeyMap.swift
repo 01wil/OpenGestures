@@ -3,8 +3,8 @@
 import Carbon.HIToolbox
 import CoreGraphics
 
-enum KeyMap {
-    static let named: [String: CGKeyCode] = [
+public enum KeyMap {
+    public static let named: [String: CGKeyCode] = [
         "return": 36, "tab": 48, "space": 49, "escape": 53, "delete": 51, "forwardDelete": 117,
         "left": 123, "right": 124, "down": 125, "up": 126, "home": 115, "end": 119, "pageUp": 116, "pageDown": 121,
         "f1": 122, "f2": 120, "f3": 99, "f4": 118, "f5": 96, "f6": 97, "f7": 98, "f8": 100, "f9": 101, "f10": 109,

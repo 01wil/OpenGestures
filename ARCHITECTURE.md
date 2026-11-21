@@ -1,0 +1,72 @@
+# Architecture
+
+OpenGestures reads raw trackpad touches, recognizes gestures from them, looks up the binding for the gesture, and runs its action. Everything that can be pure is pure, so `swift test` covers it without a trackpad.
+
+## Modules
+
+Defined in `Package.swift`. Each is a library target with its own test target, except the bridge and the app.
+
+- `Model` is shared value types: `Gesture` (with its string id), `Modifiers`, `Action`, `Binding`, `TouchFrame`. Pure.
+- `Recognizer` takes touch frames and emits `GestureEvent` values. Pure. Thresholds live in `Tuning`.
+- `Config` loads, saves, validates, migrates and watches the config file, resolves bindings (`BindingResolver`), warns about odd bindings (`Validator`) and detects clashes with macOS gestures (`SystemGestureConflicts`).
+- `Windows` has the most-recently-used window list (`WindowHistory`), display ordering and window frame math (`DisplayGeometry`), both pure, plus the Accessibility glue (`AX`, `WindowTracker`, `WindowController`).
+- `Actions` runs a `Model.Action`. Everything with a side effect sits behind a protocol in `Seams.swift` (window commands, event posting, process launching, opening URLs and files), with real implementations in `Live.swift` and fakes in the tests.
+- `CMultitouch` declares the private MultitouchSupport functions. `MultitouchBridge` wraps them and turns device callbacks into `TouchFrame` values.
+- `OpenGestures` is the app: menu bar item, settings window, first-run screen. It wires the modules together.
+- `og-record` records touch frames to JSON for fixtures.
+
+## Data flow
+
+```
+MultitouchBridge  ->  GestureRecognizer (one per device)  ->  BindingResolver  ->  ActionRunner
+   TouchFrame             GestureEvent                        Binding              side effect
+```
+
+The bridge opens every multitouch device, registers a contact-frame callback on each, and rescans after wake from sleep and when a device connects. Each device gets its own recognizer, because finger counts and positions must not mix across devices.
+
+A discrete gesture produces one `GestureEvent`. A continuous one (`edgeslide.*`) produces repeated events with a signed delta.
+
+The resolver receives the gesture, the modifier keys held at that moment, and the frontmost app's bundle identifier. It considers enabled bindings whose gesture and modifiers match exactly. A binding limited to the frontmost app wins, otherwise the first global one. The runner then executes the binding's single action. Failures go to an error callback instead of throwing, and scripts run out of process with a 30 second timeout.
+
+Config changes flow the other way. `ConfigStore.watch` watches the directory and the file, debounces by 50 ms, and delivers either a new `Configuration` or a `ConfigError`. The app swaps in a valid configuration and keeps the previous one on error. The settings window edits the same `Configuration` and saves through `ConfigStore`, so the file and the editor stay in sync.
+
+## Config schema
+
+```
+Configuration  { version: Int, settings: Settings, bindings: [Binding] }
+Settings       { enabled, showMenuBarIcon, launchAtLogin: Bool, sensitivity: 0...1 }
+Binding        { id: UUID, gesture: String, modifiers: ["cmd","shift","ctrl","opt"],
+                 apps: [bundle id], action: Action, enabled: Bool, name: String? }
+Action         { "type": <kind>, ...fields }   flat, the fields depend on the kind
+```
+
+Decoding is lenient on optional fields so hand-written files stay short, and strict on the rest: an unknown gesture id, modifier or action type is an error that names the problem. `version` is the schema version. Older files are migrated in `Configuration.decode`, newer ones are rejected. Encoding uses sorted keys and pretty printing, so the file produces small diffs in git. If the config path is a symlink, `save` writes to the target and keeps the link. The default configuration, with fixed UUIDs, is `Configuration.default`, and it must round-trip unchanged.
+
+## Testing
+
+The strategy is to keep logic out of the parts that need hardware.
+
+- The recognizer is a pure function of touch frames. Tests build frames with a synthesizer (`Synth.swift`) and replay recorded fixtures.
+- Fixtures are JSON arrays of frames in `Tests/RecognizerTests/Fixtures`, named `<gesture-id>__<name>.json`. `FixtureTests` runs every file and expects exactly that gesture. A file named `none__<name>.json` must yield no gesture, which is how near misses (too short, wrong finger count, resting palm) are pinned. Record one with:
+
+```
+swift run og-record Tests/RecognizerTests/Fixtures/swipe.4.left__laptop-1.json
+```
+
+Perform the gesture within 120 seconds of starting it. Recording begins at the first touch and stops after 5 seconds by default. A second argument sets the seconds.
+
+- Config parsing, validation, migration, binding resolution, conflict detection, window history, display ordering and frame math are unit tests on plain values.
+- The action runner is tested against fake seams, so no key press or window move happens.
+- What cannot be automated, such as real devices, the Accessibility permission, multiple displays and the UI, is covered by [docs/manual-test.md](docs/manual-test.md).
+
+## Private APIs and their risk
+
+None of these are covered by Apple's compatibility promises. Each can change or disappear in any macOS update.
+
+- MultitouchSupport (`MTDeviceCreateList`, `MTRegisterContactFrameCallback`, `MTDeviceStart`, `MTDeviceStop`, `MTDeviceIsBuiltIn`), linked from `/System/Library/PrivateFrameworks`. This is the only source of raw touches, so if it breaks, the app does nothing. Risk is high impact, low frequency. The struct layout in `CMultitouch.h` is reverse engineered, so a layout change would produce garbage coordinates before it produces a crash. `og-record` and the fixtures make that visible.
+- `_AXUIElementGetWindow`, found at runtime with `dlsym`, maps an Accessibility window to a window id. If missing, window lookup fails and focus actions do nothing.
+- `GetProcessForPID` and `_SLPSSetFrontProcessWithOptions`, also found with `dlsym`, bring forward a window on another Space, which public API cannot do. If missing, switching to such windows fails and the rest still works.
+
+Symbols found with `dlsym` degrade to a no-op. The linked MultitouchSupport framework does not, because the app will not launch without it.
+
+The public APIs involved are Accessibility (needs the user's permission), CGEvent for posting keys, clicks and media keys, and reading the trackpad preferences domains to detect conflicts.

@@ -12,7 +12,7 @@ public final class MultitouchBridge: @unchecked Sendable {
     public static let shared = MultitouchBridge()
 
     private let lock = NSLock()
-    private var handler: (@Sendable (TouchFrame) -> Void)?
+    private var handler: (@Sendable (_ device: Int, TouchFrame) -> Void)?
     // Keeping the list alive keeps the devices alive; releasing it silently stops callbacks.
     private var devices: [AnyObject] = []
     private var wakeObserver: NSObjectProtocol?
@@ -23,6 +23,11 @@ public final class MultitouchBridge: @unchecked Sendable {
     public var deviceCount: Int { lock.withLock { devices.count } }
 
     public func start(_ onFrame: @escaping @Sendable (TouchFrame) -> Void) {
+        start(perDevice: { _, frame in onFrame(frame) })
+    }
+
+    /// `device` identifies the trackpad for as long as it stays attached; feed each to its own recogniser.
+    public func start(perDevice onFrame: @escaping @Sendable (_ device: Int, TouchFrame) -> Void) {
         lock.withLock { handler = onFrame }
         attach()
     }
@@ -38,9 +43,9 @@ public final class MultitouchBridge: @unchecked Sendable {
         attach()
     }
 
-    fileprivate func deliver(_ frame: TouchFrame) {
+    fileprivate func deliver(device: Int, _ frame: TouchFrame) {
         let h = lock.withLock { handler }
-        h?(frame)
+        h?(device, frame)
     }
 
     private func attach() {
@@ -65,7 +70,7 @@ public final class MultitouchBridge: @unchecked Sendable {
 }
 
 /// Must return 0: on macOS 27 a void-returning callback reportedly suppresses system gestures.
-private let contactCallback: MTContactCallbackFunction = { _, touches, count, timestamp, _ in
+private let contactCallback: MTContactCallbackFunction = { device, touches, count, timestamp, _ in
     var list: [Touch] = []
     list.reserveCapacity(Int(count))
     if let touches {
@@ -79,6 +84,6 @@ private let contactCallback: MTContactCallbackFunction = { _, touches, count, ti
             ))
         }
     }
-    MultitouchBridge.shared.deliver(TouchFrame(timestamp: timestamp, touches: list))
+    MultitouchBridge.shared.deliver(device: Int(bitPattern: device), TouchFrame(timestamp: timestamp, touches: list))
     return 0
 }

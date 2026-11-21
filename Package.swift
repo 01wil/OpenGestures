@@ -26,9 +26,11 @@ let package = Package(
         ),
         // Turns device callbacks into Model.TouchFrame values.
         .target(name: "MultitouchBridge", dependencies: ["CMultitouch", "Model"]),
+        // App logic without UI: per-device recognition, dispatch, editor models, display names. Pure.
+        .target(name: "AppCore", dependencies: ["Model", "Recognizer", "Config", "Actions"]),
         .executableTarget(
             name: "OpenGestures",
-            dependencies: ["Model", "Recognizer", "Config", "Windows", "Actions", "MultitouchBridge"]
+            dependencies: ["AppCore", "Model", "Recognizer", "Config", "Windows", "Actions", "MultitouchBridge"]
         ),
         // Records touch frames to JSON for recogniser fixtures.
         .executableTarget(name: "og-record", dependencies: ["Model", "MultitouchBridge"]),
@@ -37,5 +39,6 @@ let package = Package(
         .testTarget(name: "ConfigTests", dependencies: ["Config", "Model"]),
         .testTarget(name: "WindowsTests", dependencies: ["Windows", "Model"]),
         .testTarget(name: "ActionsTests", dependencies: ["Actions", "Model"]),
+        .testTarget(name: "AppCoreTests", dependencies: ["AppCore", "Actions", "Config", "Model"]),
     ]
 )
