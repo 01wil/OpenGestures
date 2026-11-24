@@ -17,12 +17,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu = StatusMenu(model: model, delegate: self)
         if model.isFirstRun {
             showOnboarding()
-        } else if !model.config.settings.showMenuBarIcon {
+        } else if !model.config.settings.showMenuBarIcon && !Self.launchedAtLogin {
             showSettings(nil)
         }
         #if DEBUG
         snapshotIfRequested()
         #endif
+    }
+
+    /// A login item is opened with an "open application" event that says so; a launch from Finder,
+    /// Spotlight or the Dock is not. Only those should show a window when the menu bar icon is hidden.
+    private static var launchedAtLogin: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventID == AEEventID(kAEOpenApplication) else { return false }
+        let reason = event.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue
+        return reason == OSType(keyAELaunchedAsLogInItem) || reason == OSType(keyAELaunchedAsServiceItem)
     }
 
     /// Opening the app again while it runs is the way back in when the menu bar icon is hidden.
