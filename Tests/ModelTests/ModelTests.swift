@@ -16,6 +16,7 @@ import Testing
         ("edgeswipe.right", .edgeSwipe(edge: .right)),
         ("cornertap.topleft", .cornerTap(corner: .topLeft)),
         ("edgeslide.left", .edgeSlide(edge: .left)),
+        ("forceclick.3", .forceClick(fingers: 3)),
     ])
     func roundTrips(id: String, gesture: Gesture) {
         #expect(Gesture(id: id) == gesture)
@@ -23,7 +24,7 @@ import Testing
     }
 
     @Test(arguments: ["", "swipe", "swipe.4", "swipe.9.left", "swipe.1.left", "tap.0", "tap.6",
-                      "pinch.1.in", "rotate.left", "tiptap.up", "edgeswipe.middle", "nonsense.1"])
+                      "pinch.1.in", "rotate.left", "tiptap.up", "edgeswipe.middle", "forceclick.0", "forceclick.6", "nonsense.1"])
     func rejectsInvalid(id: String) {
         #expect(Gesture(id: id) == nil)
     }

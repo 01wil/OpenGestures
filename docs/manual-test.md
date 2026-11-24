@@ -43,6 +43,7 @@ Add a binding for each in the settings window, with any gesture you like, and fi
 - [ ] Snapped window: apply a layout to a Terminal window (it snaps to its character grid) and fire it again. It restores instead of re-applying.
 - [ ] Adjust: an edge slide changes volume or brightness while you move, and stops when you lift.
 - [ ] Each remaining gesture type (tap, pinch, rotate, TipTap, edge swipe, corner tap) triggers a binding.
+- [ ] Force click: bind a 3-finger force click to ⌘⇥. A hard press with three fingers switches to the previous app, a normal 3-finger click does not, and a binding for a 3-finger tap does not fire as well.
 
 ## Modifiers and per-app bindings
 

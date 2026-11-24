@@ -178,7 +178,7 @@ private struct GestureParameter: View {
             choice("Edge", $draft.edge, Gesture.Edge.allCases) { $0.rawValue.capitalized }
         case .cornerTap:
             choice("Corner", $draft.corner, Gesture.Corner.allCases) { $0.title.capitalized }
-        case .tap:
+        case .tap, .forceClick:
             EmptyView()
         }
     }

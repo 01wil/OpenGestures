@@ -54,6 +54,14 @@ public final class GestureRecognizer {
         self.tuning = tuning
     }
 
+    /// Fingers on the trackpad now, palms and unconfirmed contacts not counted.
+    public var fingersDown: Int { positions.count }
+
+    /// Something outside the recogniser (a force click) claimed this touch: nothing fires until all fingers lift.
+    public func claimTouch() {
+        session?.done = true
+    }
+
     public func reset() {
         positions = [:]
         palms = []

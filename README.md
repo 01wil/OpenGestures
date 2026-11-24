@@ -51,9 +51,12 @@ edgeswipe.<left|right|top|bottom>  one finger swipes in from an edge
 cornertap.<topleft|topright|bottomleft|bottomright>
                                    one finger taps in a corner
 edgeslide.<left|right|top|bottom>  one finger slides along an edge (continuous)
+forceclick.<1-5>                   press harder than a click with 1 to 5 fingers
 ```
 
 An edge slide reports a value while you move, so it only pairs with the adjust action (volume or brightness). Every other gesture fires once.
+
+A force click needs a Force Touch trackpad (most MacBooks from 2015 on, and the Magic Trackpad 2 and later). How hard you have to press follows the "Click" setting in System Settings › Trackpad. The normal click under the force click still happens. A one-finger force click is also what macOS uses for Look Up, so two or more fingers work best: for example, a hard press with three fingers bound to ⌘⇥ switches to the previous app.
 
 ## Supported actions
 
@@ -312,6 +315,17 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
 ## Privacy
 
 OpenGestures makes no network connections and collects no telemetry. It needs one permission, Accessibility. It uses it to move and focus windows, and to send the key presses and clicks your bindings ask for. It does not log or store what you do on the trackpad.
+
+## Changelog
+
+0.2.0 (2026-11-24)
+
+- New gesture: force click with 1 to 5 fingers (`forceclick.<n>`). Press harder than a normal click to trigger it. Thanks to the Reddit user who asked for it.
+- Fix: with the menu bar icon hidden, the settings window opened after every restart. Starting at login now stays in the background. Opening the app by hand still shows the window.
+
+0.1.0 (2026-11-21)
+
+- First release.
 
 ## How it works
 

@@ -31,6 +31,8 @@ The bridge opens every multitouch device, registers a contact-frame callback on 
 
 A discrete gesture produces one `GestureEvent`. A continuous one (`edgeslide.*`) produces repeated events with a signed delta.
 
+Force clicks do not come from the touch frames. `Engine` listens with a listen-only event tap for the pressure events macOS sends (they arrive as gesture events, type 29) (stage 2 is a force click, judged with the user's click pressure setting) and asks `GesturePipeline.forceClick` how many fingers are down. The pressure event does not name the device, so the trackpad with the most fingers wins. That touch is then claimed, so lifting the fingers is not also a tap. The tap needs Accessibility and is created again once access is granted.
+
 The resolver receives the gesture, the modifier keys held at that moment, and the frontmost app's bundle identifier. It considers enabled bindings whose gesture and modifiers match exactly. A binding limited to the frontmost app wins, otherwise the first global one. The runner then executes the binding's single action. Failures go to an error callback instead of throwing, and scripts run out of process with a 30 second timeout.
 
 Config changes flow the other way. `ConfigStore.watch` watches the directory and the file, debounces by 50 ms, and delivers either a new `Configuration` or a `ConfigError`. The app swaps in a valid configuration and keeps the previous one on error. The settings window edits the same `Configuration` and saves through `ConfigStore`, so the file and the editor stay in sync.

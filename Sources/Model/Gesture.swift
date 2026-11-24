@@ -14,6 +14,8 @@ public enum Gesture: Hashable, Sendable {
     case cornerTap(corner: Corner)
     /// One finger slides along an edge; continuous, reports a delta while moving.
     case edgeSlide(edge: Edge)
+    /// The trackpad pressed past the normal click (Force Touch trackpads), with this many fingers on it.
+    case forceClick(fingers: Int)
 
     public enum Direction: String, Sendable, CaseIterable { case left, right, up, down }
     public enum PinchDirection: String, Sendable, CaseIterable { case pinchIn = "in", pinchOut = "out" }
@@ -27,6 +29,7 @@ public enum Gesture: Hashable, Sendable {
     public static let swipeFingers = 2...5
     public static let tapFingers = 1...5
     public static let pinchFingers = 2...5
+    public static let forceClickFingers = 1...5
 
     public var isContinuous: Bool {
         if case .edgeSlide = self { return true }
@@ -43,6 +46,7 @@ public enum Gesture: Hashable, Sendable {
         case let .edgeSwipe(e): "edgeswipe.\(e.rawValue)"
         case let .cornerTap(c): "cornertap.\(c.rawValue)"
         case let .edgeSlide(e): "edgeslide.\(e.rawValue)"
+        case let .forceClick(n): "forceclick.\(n)"
         }
     }
 
@@ -76,6 +80,9 @@ public enum Gesture: Hashable, Sendable {
         case ("edgeslide", 2):
             guard let e = Edge(rawValue: p[1]) else { return nil }
             self = .edgeSlide(edge: e)
+        case ("forceclick", 2):
+            guard let n = fingers(p[1], Self.forceClickFingers) else { return nil }
+            self = .forceClick(fingers: n)
         default:
             return nil
         }

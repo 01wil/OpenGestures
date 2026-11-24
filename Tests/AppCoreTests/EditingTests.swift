@@ -12,7 +12,7 @@ import Testing
     }
 
     @Test func allGesturesCoversEveryKind() {
-        #expect(GestureDraft.allGestures.count == 4 * 4 + 5 + 4 * 2 + 2 + 2 + 4 + 4 + 4)
+        #expect(GestureDraft.allGestures.count == 4 * 4 + 5 + 4 * 2 + 2 + 2 + 4 + 4 + 4 + 5)
     }
 
     @Test func switchingKindClampsFingers() {

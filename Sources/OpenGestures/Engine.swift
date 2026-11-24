@@ -23,6 +23,8 @@ final class Engine {
     private var running = false
     private var recorder: ((Gesture, Modifiers) -> Void)?
     private var notificationPort: IONotificationPortRef?
+    private var pressureTap: CFMachPort?
+    private var pressureStage = 0
     private lazy var rescans = RescanSchedule(
         after: { delay, body in DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { body() } } },
         rescan: { [unowned self] in restart() })
@@ -43,6 +45,11 @@ final class Engine {
     /// Accessibility was just granted: the window tracker needs AX to follow focus.
     func accessibilityGranted() {
         windows.restart()
+        // A tap created before access was granted gets no events, so make a new one.
+        if running {
+            stopPressureTap()
+            startPressureTap()
+        }
     }
 
     func configure(bindings: [Binding], enabled: Bool, sensitivity: Double) {
@@ -78,7 +85,9 @@ final class Engine {
                 }
             })
             log.info("engine started, \(MultitouchBridge.shared.deviceCount) trackpad(s)")
+            startPressureTap()
         } else {
+            stopPressureTap()
             rescans.cancel()
             MultitouchBridge.shared.stop()
             pipeline.reset()
@@ -113,6 +122,60 @@ final class Engine {
             case nil: break
             }
         }
+    }
+
+    // MARK: Force click
+
+    /// macOS turns trackpad pressure into pressure events: stage 1 is a click, stage 2 a force click. It
+    /// applies the user's click pressure setting, so OpenGestures uses its stages and adds the finger count.
+    /// Listening needs Accessibility; without it creating the tap fails and is retried once access arrives.
+    private func startPressureTap() {
+        guard pressureTap == nil else { return }
+        // Pressure arrives in the event stream as gesture events (type 29, no CGEventType case); NSEvent tells
+        // them apart. Type 34, NSEvent's own pressure type, was never seen on macOS 27 but costs nothing.
+        let mask = CGEventMask(1) << CGEventMask(NSEvent.EventType.gesture.rawValue)
+            | CGEventMask(1) << CGEventMask(NSEvent.EventType.pressure.rawValue)
+        let callback: CGEventTapCallBack = { _, type, event, context in
+            if let context {
+                let engine = Unmanaged<Engine>.fromOpaque(context).takeUnretainedValue()
+                // The tap runs on the main run loop.
+                MainActor.assumeIsolated {
+                    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                        engine.pressureTap.map { CGEvent.tapEnable(tap: $0, enable: true) }
+                    } else if let ns = NSEvent(cgEvent: event), ns.type == .pressure {
+                        engine.pressure(stage: ns.stage, flags: event.flags)
+                    }
+                }
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .tailAppendEventTap, options: .listenOnly,
+                                          eventsOfInterest: mask, callback: callback,
+                                          userInfo: Unmanaged.passUnretained(self).toOpaque()) else {
+            log.info("force click unavailable until Accessibility is granted")
+            return
+        }
+        pressureTap = tap
+        log.info("listening for force clicks")
+        CFRunLoopAddSource(CFRunLoopGetMain(), CFMachPortCreateRunLoopSource(nil, tap, 0), .commonModes)
+    }
+
+    private func stopPressureTap() {
+        guard let tap = pressureTap else { return }
+        CGEvent.tapEnable(tap: tap, enable: false)
+        CFMachPortInvalidate(tap)
+        pressureTap = nil
+        pressureStage = 0
+    }
+
+    private func pressure(stage: Int, flags: CGEventFlags) {
+        defer { pressureStage = stage }
+        guard stage >= 2, pressureStage < 2 else { return }
+        guard let event = pipeline.forceClick() else {
+            log.info("force click with no finger on a trackpad")
+            return
+        }
+        handle([event], modifiers: Modifiers(flags))
     }
 
     // MARK: Device changes

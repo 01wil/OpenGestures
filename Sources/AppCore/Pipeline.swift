@@ -33,6 +33,16 @@ public final class GesturePipeline: @unchecked Sendable {
         }
     }
 
+    /// macOS reported a force click. It does not say which trackpad, so the one with the most fingers on it
+    /// pressed; that touch is claimed so lifting the fingers is not also a tap. Nil when no finger is down.
+    public func forceClick() -> GestureEvent? {
+        lock.withLock {
+            guard let r = recognizers.values.max(by: { $0.fingersDown < $1.fingersDown }), r.fingersDown > 0 else { return nil }
+            r.claimTouch()
+            return GestureEvent(.forceClick(fingers: min(r.fingersDown, Gesture.forceClickFingers.upperBound)))
+        }
+    }
+
     /// Drops all state, e.g. after the device list changed.
     public func reset() {
         lock.withLock { recognizers = [:] }

@@ -38,6 +38,39 @@ func fourFingerSwipeLeft() -> [TouchFrame] {
         #expect(events == [swipeLeft])
     }
 
+    /// Three fingers resting for 0.2 s, as a press before it gets hard enough for a force click.
+    func threeFingersDown(until end: Double = 0.2) -> [TouchFrame] {
+        stride(from: 0.0, through: end, by: 1 / 90).map { t in
+            TouchFrame(timestamp: t, touches: (0..<3).map { Touch(id: $0 + 1, x: Float(0.4 + Double($0) * 0.08), y: 0.45) })
+        }
+    }
+
+    @Test func forceClickCountsTheFingersDown() {
+        let p = GesturePipeline()
+        _ = threeFingersDown().flatMap { p.process(device: 1, frame: $0) }
+        _ = p.process(device: 2, frame: TouchFrame(timestamp: 0.2, touches: []))
+        #expect(p.forceClick() == GestureEvent(.forceClick(fingers: 3)))
+    }
+
+    @Test func forceClickWithoutFingersIsNothing() {
+        let p = GesturePipeline()
+        #expect(p.forceClick() == nil)
+        _ = p.process(device: 1, frame: TouchFrame(timestamp: 0, touches: []))
+        #expect(p.forceClick() == nil)
+    }
+
+    @Test func forceClickIsNotAlsoATap() {
+        let p = GesturePipeline()
+        let press = threeFingersDown(until: 0.12)
+        let lift = TouchFrame(timestamp: 0.14, touches: [])
+        // Short enough to be a three-finger tap without the force click.
+        #expect((press + [lift]).flatMap { p.process(device: 1, frame: $0) } == [GestureEvent(.tap(fingers: 3))])
+        let q = GesturePipeline()
+        _ = press.flatMap { q.process(device: 1, frame: $0) }
+        #expect(q.forceClick() == GestureEvent(.forceClick(fingers: 3)))
+        #expect(q.process(device: 1, frame: lift).isEmpty)
+    }
+
     @Test func lowerSensitivityNeedsMoreMovement() {
         let p = GesturePipeline()
         p.setSensitivity(0)

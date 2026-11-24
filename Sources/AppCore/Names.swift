@@ -15,6 +15,7 @@ extension Gesture {
         case let .edgeSwipe(e): "Swipe in from \(e.rawValue) edge"
         case let .cornerTap(c): "Tap \(c.title) corner"
         case let .edgeSlide(e): "Slide along \(e.rawValue) edge"
+        case let .forceClick(n): "\(n)-finger force click"
         }
     }
 
@@ -28,6 +29,7 @@ extension Gesture {
         case let .edgeSwipe(e): "rectangle.\(e.rawValue)half.inset.filled"
         case let .cornerTap(c): "rectangle.inset.\(c.rawValue).filled"
         case let .edgeSlide(e): e == .left || e == .right ? "slider.vertical.3" : "slider.horizontal.3"
+        case .forceClick: "hand.tap.fill"
         }
     }
 }

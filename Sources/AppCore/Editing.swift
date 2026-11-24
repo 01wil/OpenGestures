@@ -4,7 +4,7 @@ import Config
 import Model
 
 public enum GestureKind: String, CaseIterable, Sendable {
-    case swipe, tap, pinch, rotate, tipTap, edgeSwipe, cornerTap, edgeSlide
+    case swipe, tap, pinch, rotate, tipTap, edgeSwipe, cornerTap, edgeSlide, forceClick
 
     public var title: String {
         switch self {
@@ -16,6 +16,7 @@ public enum GestureKind: String, CaseIterable, Sendable {
         case .edgeSwipe: "Swipe from edge"
         case .cornerTap: "Corner tap"
         case .edgeSlide: "Slide along edge"
+        case .forceClick: "Force click"
         }
     }
 
@@ -24,6 +25,7 @@ public enum GestureKind: String, CaseIterable, Sendable {
         case .swipe: Gesture.swipeFingers
         case .tap: Gesture.tapFingers
         case .pinch: Gesture.pinchFingers
+        case .forceClick: Gesture.forceClickFingers
         default: nil
         }
     }
@@ -50,6 +52,7 @@ public struct GestureDraft: Equatable, Sendable {
         case let .edgeSwipe(e): (kind, edge) = (.edgeSwipe, e)
         case let .cornerTap(c): (kind, corner) = (.cornerTap, c)
         case let .edgeSlide(e): (kind, edge) = (.edgeSlide, e)
+        case let .forceClick(n): (kind, fingers) = (.forceClick, n)
         }
     }
 
@@ -64,6 +67,7 @@ public struct GestureDraft: Equatable, Sendable {
         case .edgeSwipe: .edgeSwipe(edge: edge)
         case .cornerTap: .cornerTap(corner: corner)
         case .edgeSlide: .edgeSlide(edge: edge)
+        case .forceClick: .forceClick(fingers: n)
         }
     }
 
@@ -76,6 +80,7 @@ public struct GestureDraft: Equatable, Sendable {
         + Gesture.Edge.allCases.map { Gesture.edgeSwipe(edge: $0) }
         + Gesture.Corner.allCases.map { Gesture.cornerTap(corner: $0) }
         + Gesture.Edge.allCases.map { Gesture.edgeSlide(edge: $0) }
+        + Gesture.forceClickFingers.map { Gesture.forceClick(fingers: $0) }
 }
 
 extension Configuration {
